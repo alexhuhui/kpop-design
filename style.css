@@ -1,0 +1,648 @@
+/* ===========================================================================
+   Alex Designs — design gallery
+   Light mode only. The work carries the colour; the chrome stays quiet.
+   =========================================================================== */
+
+:root {
+  --bg: #faf8f5;
+  --surface: #ffffff;
+  --border: #e8e2d8;         /* hairlines between blocks. Decoration only. */
+  --border-control: #948b7c; /* the edge of a control. 3.4:1 on white, per WCAG 1.4.11 */
+  --black: #111010;
+  --text: #2d2416;
+  --muted: #6f6455;
+  --accent: #f97316;
+  --accent-soft: #fff0e6;
+  --accent-mid: #fed7aa;
+  --accent-dim: #c2500f;   /* orange dark enough to be a border or a ring */
+  --accent-text: #96410a;  /* orange on light backgrounds — contrast-safe */
+  --accent-on: #16120c;    /* text sitting on an orange fill */
+
+  --gap: 1rem;
+  --pad: clamp(1rem, 4vw, 2.5rem);
+  --radius: 3px;
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+          Arial, "Noto Sans", sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Present to a screen reader, absent from the page. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  /* The tiles and chips already answer a press with a scale. iOS's grey box
+     on top of that just looks like a rendering fault. */
+  -webkit-tap-highlight-color: transparent;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.5;
+  /* The masthead is sticky, so keep the browser from double-correcting. */
+  overflow-anchor: none;
+}
+
+svg { display: block; }
+
+/* --- Focus ------------------------------------------------------------ */
+/* :focus-visible only. Keyboard users get the ring, mouse clicks stay clean. */
+
+:where(a, button):focus { outline: none; }
+
+/* --accent is 2.4:1 against the page and would fail WCAG 1.4.11 as a ring —
+   the same reason it is never used for text. --accent-dim is 4.5:1 and reads
+   as the same orange. The lightbox sits on a near-black backdrop and keeps
+   --accent, which is 5.6:1 there. */
+:where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-dim);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  color: var(--accent-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus-visible { left: 0.5rem; top: 0.5rem; }
+
+/* --- Tap feedback ----------------------------------------------------- */
+/* :where() so these carry zero specificity and never fight a later rule. */
+
+:where(button, .tile__btn) {
+  transition: transform 140ms var(--ease-spring);
+}
+
+:where(button, .tile__btn):active {
+  transform: scale(0.96);
+}
+
+/* --- Masthead --------------------------------------------------------- */
+
+/* One sticky unit above 640px. Below it, only .filters pins (see the media
+   query under the filter bar) so the header scrolls away on a phone. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(1.6) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.masthead {
+  /* Title on the left, search on the right, on one line. It wraps to two rows
+     on a narrow screen rather than squeezing the field to nothing. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.7rem var(--pad) 0.6rem;
+}
+
+.masthead__id { flex: 1 1 12rem; min-width: 0; }
+
+.masthead__name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--accent-text);
+}
+
+.masthead__line {
+  margin: 0.15rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--muted);
+  max-width: 60ch;
+}
+
+/* A notch only eats the sides in landscape, and only there is it worth the
+   asymmetry. Portrait insets are zero on every phone that has them. */
+@media (orientation: landscape) {
+  .masthead,
+  .filters__scroller,
+  .section,
+  .notice,
+  .footer {
+    padding-left: max(var(--pad), env(safe-area-inset-left));
+    padding-right: max(var(--pad), env(safe-area-inset-right));
+  }
+}
+
+/* --- Filter bar ------------------------------------------------------- */
+
+.filters {
+  border-top: 1px solid var(--border);
+}
+
+/* Phones: drop the masthead out of the sticky flow and pin only the control. */
+@media (max-width: 639px) {
+  /* display:contents, not position:static — a sticky child can only stick
+     inside its parent's box, so the wrapper has to stop being a box at all. */
+  .topbar { display: contents; }
+
+  .filters {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: saturate(1.6) blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* A clean edge reads as the end of the row, so a phone-width chip bar has
+     to say the chips keep going. An overlay rather than a mask, so it never
+     dims the focus ring on the last chip. */
+  .filters::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 1px;
+    width: 2rem;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, var(--bg));
+  }
+}
+
+.filters__scroller {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.6rem var(--pad);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--border-control);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 140ms var(--ease-spring),
+              background-color 140ms ease,
+              border-color 140ms ease,
+              color 140ms ease;
+}
+
+@media (hover: hover) {
+  .filter:hover {
+    /* --accent-mid is 1.4:1 and would make the edge of a hovered chip fainter
+       than a resting one. Hover may not cost contrast. */
+    border-color: var(--accent-dim);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+}
+
+.filter[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-on);
+}
+
+.filter__count {
+  margin-inline-start: 0.4em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+}
+
+/* --- Search ----------------------------------------------------------- */
+
+.search {
+  position: relative;
+  /* Sized against the masthead, not the page: it sits beside the title. */
+  flex: 0 1 18rem;
+  min-width: 11rem;
+}
+
+.search__icon {
+  position: absolute;
+  top: calc(50% - 0.3rem);
+  left: 0.7rem;
+  width: 15px;
+  height: 15px;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  /* Decoration sitting over the field — it must never eat the click. */
+  pointer-events: none;
+}
+
+.search__input {
+  width: 100%;
+  min-height: 36px;
+  padding: 0.4rem 0.85rem 0.4rem 2.1rem;
+  border: 1px solid var(--border-control);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  transition: border-color 140ms ease;
+}
+
+.search__input::placeholder { color: var(--muted); }
+.search__input:hover { border-color: var(--accent-dim); }
+
+/* On a phone the field takes the full second row rather than a sliver of the
+   first. */
+@media (max-width: 559px) {
+  .search { flex: 1 1 100%; }
+}
+
+/* --- Sections --------------------------------------------------------- */
+/* Every series is its own block and carries its own shape. The layout name
+   comes from the manifest, so the page never hard-codes which is which. */
+
+.section {
+  padding: 0 var(--pad);
+}
+
+.section[hidden] { display: none; }
+
+.section__title {
+  margin: 1.6rem 0 0.7rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.section:first-child .section__title { margin-top: 1rem; }
+
+.section__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.section__items:focus-visible {
+  outline: 2px solid var(--accent-dim);
+  outline-offset: 4px;
+  border-radius: var(--radius);
+}
+
+/* The filter bar is sticky, so a tile scrolled to the top edge lands under it.
+   Chrome allows for a sticky ancestor by itself; Safari and Firefox do not.
+   This is the margin that keeps a focus ring visible in all three
+   (WCAG 2.2, 2.4.11 Focus Not Obscured). */
+.tile,
+.section__title { scroll-margin-top: 9rem; }
+
+@media (max-width: 639px) { .tile, .section__title { scroll-margin-top: 4.5rem; } }
+
+.tile { margin: 0; }
+.tile[hidden] { display: none; }
+
+/* masonry — columns, mixed heights, nothing cropped. The default. */
+
+[data-layout="masonry"] .section__items {
+  column-count: 1;
+  column-gap: var(--gap);
+}
+
+@media (min-width: 640px)  { [data-layout="masonry"] .section__items { column-count: 2; } }
+@media (min-width: 1024px) { [data-layout="masonry"] .section__items { column-count: 3; } }
+@media (min-width: 1440px) { [data-layout="masonry"] .section__items { column-count: 4; } }
+
+[data-layout="masonry"] .tile {
+  /* A tile must not be split across two columns. */
+  break-inside: avoid;
+  margin-bottom: var(--gap);
+}
+
+/* carousel — one horizontal row that snaps. Bleeds to both screen edges so
+   the row reads as something that keeps going. */
+
+[data-layout="carousel"] .section__items {
+  display: flex;
+  gap: var(--gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--pad);
+  margin-inline: calc(var(--pad) * -1);
+  padding: 0.25rem var(--pad) 0.6rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+[data-layout="carousel"] .tile {
+  flex: 0 0 min(70vw, 300px);
+  scroll-snap-align: start;
+}
+
+[data-layout="carousel"] .tile__img {
+  /* A ratio rather than a fixed height, so a narrow phone gets a taller card
+     instead of a letterbox slice of a portrait poster. */
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+
+/* feature — the first design at full width, the rest as a strip beneath it. */
+
+[data-layout="feature"] .section__items {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+}
+
+[data-layout="feature"] .tile:first-child { grid-column: 1 / -1; }
+
+[data-layout="feature"] .tile:first-child .tile__img {
+  /* contain, not cover: a hero poster is the one image that must stay whole. */
+  max-height: 78vh;
+  object-fit: contain;
+}
+
+/* Cropping earns its keep only once the cards sit side by side. In one column
+   a crop is pure loss, so the artwork keeps its own shape. */
+@media (min-width: 480px) {
+  [data-layout="feature"] .tile:not(:first-child) .tile__img {
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+  }
+}
+
+/* uniform — equal cards on a grid, cropped to one ratio. */
+
+[data-layout="uniform"] .section__items {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+}
+
+@media (min-width: 480px) {
+  [data-layout="uniform"] .tile__img {
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+  }
+}
+
+.tile__btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  border-radius: var(--radius);
+}
+
+.tile__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  /* The blurred 24px placeholder from the manifest. It is already on screen
+     when the real file starts downloading, so nothing ever flashes white. */
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+
+.tile__img.is-loaded { opacity: 1; }
+
+@media (hover: hover) {
+  .tile__btn { transition: transform 220ms ease; }
+  .tile__btn:hover { transform: translateY(-2px); }
+  .tile__btn:hover .tile__img {
+    box-shadow: 0 6px 22px -6px color-mix(in srgb, var(--black) 28%, transparent);
+  }
+}
+
+/* --- Notices: loading, empty, error ----------------------------------- */
+
+.notice {
+  padding: var(--pad);
+  max-width: 46ch;
+}
+
+.notice__title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--black);
+}
+
+.notice__body {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.notice__body code {
+  padding: 0.1em 0.35em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.9em;
+  color: var(--accent-text);
+}
+
+.footer {
+  padding: 2rem var(--pad) 3rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.footer p { margin: 0; }
+
+/* --- Lightbox --------------------------------------------------------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+}
+
+.lightbox[hidden] { display: none; }
+
+.lightbox__backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--black) 92%, transparent);
+  cursor: zoom-out;
+  animation: fade-in 180ms ease both;
+}
+
+.lightbox__stage {
+  position: relative;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  /* Never larger than the viewport, in either direction. */
+  max-width: 100vw;
+  max-height: 100vh;
+  touch-action: none;
+}
+
+.lightbox__img {
+  display: block;
+  max-width: 100vw;
+  max-height: 100vh;
+  /* A long press to start a swipe must not raise the iOS share sheet. */
+  -webkit-touch-callout: none;
+  user-select: none;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  animation: fade-in 200ms ease both;
+  will-change: transform, opacity;
+}
+
+/* On a phone 100vh is the viewport with the URL bar hidden, so the bottom of
+   the image sits under that bar. dvh is the honest figure; the vh above stays
+   as the fallback. */
+@supports (height: 100dvh) {
+  .lightbox__stage,
+  .lightbox__img { max-height: 100dvh; }
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Position indicator. This is UI, not a caption — the one bit of text
+   allowed near an image. */
+.lightbox__counter {
+  position: absolute;
+  right: max(0.75rem, env(safe-area-inset-right));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--black) 55%, transparent);
+  color: #fff;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
+
+.lightbox__btn {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  /* 44px, per Apple's target guidance and comfortably over WCAG 2.5.8. */
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--black) 55%, transparent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.lightbox__btn svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (hover: hover) {
+  .lightbox__btn:hover { background: var(--accent); color: var(--accent-on); }
+}
+
+.lightbox__btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 90%, transparent);
+  outline-offset: 2px;
+}
+
+.lightbox__btn--close {
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+}
+
+.lightbox__btn--prev { left: max(0.75rem, env(safe-area-inset-left)); }
+.lightbox__btn--next { right: max(0.75rem, env(safe-area-inset-right)); }
+
+.lightbox__btn--prev,
+.lightbox__btn--next { top: 50%; transform: translateY(-50%); }
+
+/* The spring press has to compose with the centring transform. */
+:where(.lightbox__btn--prev, .lightbox__btn--next):active {
+  transform: translateY(-50%) scale(0.96);
+}
+
+.lightbox__btn[hidden] { display: none; }
+
+/* Body scroll lock. JS pins the offset so the position is restored exactly. */
+body.is-locked {
+  position: fixed;
+  inset-inline: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* --- Reduced motion --------------------------------------------------- */
+/* State still changes. Nothing moves. */
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within { scroll-behavior: auto; }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  :where(button, .tile__btn):active { transform: none; }
+  :where(.lightbox__btn--prev, .lightbox__btn--next):active { transform: translateY(-50%); }
+  .tile__btn:hover { transform: none; }
+}
+
+/* --- Mobile type floor ------------------------------------------------ */
+/* Any form field stays at 16px below md, or iOS zooms the page on focus. */
+
+@media (max-width: 767px) {
+  /* Named, not :where() — a zero-specificity selector loses to .search__input
+     and the floor silently never applies. */
+  .search__input,
+  input, select, textarea { font-size: 16px; }
+}

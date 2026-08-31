@@ -1,0 +1,7 @@
+.build-cache.json
+node_modules/
+.DS_Store
+Thumbs.db
+designs.json
+images/_derived/
+_site/

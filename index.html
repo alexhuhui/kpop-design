@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alex Designs</title>
+<meta name="description" content="Designs done for K-Pop idols for fun!">
+<meta name="color-scheme" content="light">
+<!-- Everything this page loads, it ships itself: no CDN, no web font, no
+     analytics, no inline script or style. Say so, so a future edit that breaks
+     that rule fails in the console instead of shipping. `default-src 'none'`
+     denies first and names the exceptions, and `data:` is only on img-src for
+     the manifest's blurred placeholders and the favicon.
+     frame-ancestors is left out on purpose: a browser ignores it in a meta tag,
+     and GitHub Pages cannot send it as a header. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#faf8f5">
+<!-- Link previews. og:image is relative on purpose: the site has moved host
+     before, and every scraper worth having resolves it against the page URL. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Alex Designs">
+<meta property="og:description" content="Designs done for K-Pop idols for fun!">
+<meta property="og:image" content="images/_derived/chikai/01-soobin-1000.jpg">
+<meta property="og:image:alt" content="Soobin — CHIKAI">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f97316'/%3E%3Ctext x='16' y='23' font-family='-apple-system,Helvetica,Arial,sans-serif' font-size='18' font-weight='700' fill='%2316120c' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
+
+<!-- The manifest gates every pixel on the page, so start it before the parser
+     reaches app.js. Placeholders ride inside it, so this one request is enough
+     to paint the whole grid. -->
+<link rel="preload" href="designs.json" as="fetch" crossorigin>
+<link rel="preload" href="style.css" as="style">
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<a class="skip-link" href="#gallery">Skip to the gallery</a>
+
+<!-- Masthead and filters share one sticky parent so they can never overlap.
+     Below 640px the parent stops sticking and only the filter bar pins, which
+     hands the header's height back to the images. -->
+<div class="topbar">
+  <header class="masthead">
+    <div class="masthead__id">
+      <h1 class="masthead__name">Alex Designs</h1>
+      <p class="masthead__line">Designs done for K-Pop idols for fun!</p>
+    </div>
+
+    <div class="search">
+      <label class="sr-only" for="search">Search designs</label>
+      <svg class="search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>
+      </svg>
+      <!-- type=search, so mobile keyboards offer a search key and the browser
+           draws its own clear control. The three off switches are for phones:
+           iOS otherwise capitalises and autocorrects a member's name into an
+           English word before the first keystroke is even filtered. -->
+      <input class="search__input" id="search" type="search" autocomplete="off"
+             autocorrect="off" autocapitalize="none" spellcheck="false"
+             enterkeyhint="search" placeholder="Search a member or series">
+    </div>
+  </header>
+
+  <nav class="filters" aria-label="Filter designs">
+    <div class="filters__scroller" id="filters" role="group"></div>
+  </nav>
+</div>
+
+<main id="gallery">
+  <!-- Replaced once the manifest lands. Announced politely so a screen reader
+       hears the count change without losing its place. -->
+  <div class="notice" id="status" role="status" aria-live="polite">
+    <p class="notice__body">Loading designs…</p>
+  </div>
+  <!-- One section per series. Each carries its own layout from the manifest,
+       so a carousel and a masonry can sit on the same page. -->
+  <div id="sections"></div>
+
+  <!-- Result count, for screen readers only. The visible count lives on the
+       filter chips. -->
+  <p class="sr-only" id="tally" role="status" aria-live="polite"></p>
+</main>
+
+<footer class="footer">
+  <p>Mostly designed using Canva.</p>
+</footer>
+
+<!-- Kept in the DOM rather than built on open, so the first lightbox is as
+     quick as the tenth. `inert` keeps it off the tab order while closed. -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Design viewer" hidden inert>
+  <div class="lightbox__backdrop" data-close></div>
+
+  <figure class="lightbox__stage">
+    <img class="lightbox__img" id="lightbox-img" alt="">
+  </figure>
+
+  <p class="lightbox__counter" id="lightbox-counter" aria-live="polite"></p>
+
+  <button class="lightbox__btn lightbox__btn--close" id="lightbox-close" type="button" data-close aria-label="Close viewer">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19"/></svg>
+  </button>
+
+  <button class="lightbox__btn lightbox__btn--prev" id="lightbox-prev" type="button" aria-label="Previous design">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 4L7 12l8 8"/></svg>
+  </button>
+
+  <button class="lightbox__btn lightbox__btn--next" id="lightbox-next" type="button" aria-label="Next design">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4l8 8-8 8"/></svg>
+  </button>
+</div>
+
+</body>
+</html>

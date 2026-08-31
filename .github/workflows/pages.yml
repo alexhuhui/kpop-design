@@ -1,0 +1,65 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Lets the deploy job publish to Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One live deploy at a time. Queued runs wait rather than racing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The build keys every derivative on the source file's hash, so a cache
+      # hit means a push that adds one design re-encodes one design.
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build-cache.json
+            images/_derived
+          key: derived-${{ hashFiles('images/*/*.png') }}
+          restore-keys: derived-
+
+      - name: Build manifest and derivatives
+        run: npm run manifest
+
+      # Only what a browser actually requests. The source PNGs stay in the
+      # repo for rebuilds but are never fetched by the page, so shipping them
+      # would triple the artifact for nothing.
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp index.html style.css app.js designs.json .nojekyll _site/
+          mkdir -p _site/images
+          cp -r images/_derived _site/images/_derived
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
