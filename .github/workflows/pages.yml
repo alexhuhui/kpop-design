@@ -20,16 +20,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
       # The build keys every derivative on the source file's hash, so a cache
       # hit means a push that adds one design re-encodes one design.
       - name: Restore build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             .build-cache.json
@@ -50,7 +50,7 @@ jobs:
           mkdir -p _site/images
           cp -r images/_derived _site/images/_derived
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -62,4 +62,4 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

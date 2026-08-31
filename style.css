@@ -237,7 +237,11 @@ svg { display: block; }
 .filter__count {
   margin-inline-start: 0.4em;
   font-variant-numeric: tabular-nums;
-  opacity: 0.65;
+  /* The count used to sit at opacity 0.65, which blended --muted toward the
+     chip and landed at 2.8:1 — a WCAG 1.4.3 failure, and it dragged the whole
+     button down with it. Weight separates the count from its label instead.
+     Weight costs no contrast. */
+  font-weight: 400;
 }
 
 /* --- Search ----------------------------------------------------------- */

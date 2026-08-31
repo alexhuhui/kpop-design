@@ -12,6 +12,11 @@
   // for the viewport.
   var EAGER_COUNT = 6;
 
+  // How many full-size files to warm after load. Lower than EAGER_COUNT: a
+  // full-size file is about five times its tile, and a reader opens one design
+  // first, not six.
+  var PREFETCH_COUNT = 3;
+
   // What each layout in style.css actually renders a tile at. This is how the
   // browser picks a srcset entry before layout has happened, so a wrong figure
   // here costs exactly the bytes the derivatives exist to save.
@@ -101,6 +106,9 @@
     prefetched[url] = true;
     var img = new Image();
     img.decoding = 'async';
+    // A guess about what the reader opens next may never outrank a pixel that
+    // is already on screen.
+    img.fetchPriority = 'low';
     img.src = url;
   }
 
@@ -215,16 +223,17 @@
 
     // A carousel is a scroll container, so it has to be reachable and
     // scrollable from the keyboard in its own right. Nothing else is.
+    // role="list" stays on in every shape. A `list-style: none` <ul> loses its
+    // list semantics in VoiceOver, and role="group" on the carousel used to
+    // take them away everywhere else too, which orphaned every <li> under it.
+    c.list.setAttribute('role', 'list');
+
     if (layout === 'carousel') {
       c.list.tabIndex = 0;
-      c.list.setAttribute('role', 'group');
       c.list.setAttribute('aria-labelledby', c.titleId);
     } else {
       c.list.removeAttribute('tabindex');
       c.list.removeAttribute('aria-labelledby');
-      // VoiceOver drops list semantics from a `list-style: none` <ul>, so an
-      // iPhone reader loses the item count. Say it explicitly.
-      c.list.setAttribute('role', 'list');
       // A carousel that stopped being one must not keep its scroll offset.
       c.list.scrollLeft = 0;
     }
@@ -658,13 +667,20 @@
 
     window.addEventListener('hashchange', applyHash);
 
-    // Once the grid is painted and the browser is idle, pull the full-size
-    // files for the first screenful so the first lightbox open is instant.
+    // Pull the full-size files for the first screenful so the first lightbox
+    // open is instant. Idle alone is not late enough: it fires while the grid
+    // images are still in flight, and these files are five times their size,
+    // so they arrive as competition for the largest paint rather than after
+    // it. Wait for load, then for idle on top of that.
     var idle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 900); };
-    idle(function () {
-      if (!wantsFullFat()) return;
-      state.visible.slice(0, EAGER_COUNT).forEach(function (item) { prefetch(item.full); });
-    });
+    var warm = function () {
+      idle(function () {
+        if (!wantsFullFat()) return;
+        state.visible.slice(0, PREFETCH_COUNT).forEach(function (item) { prefetch(item.full); });
+      });
+    };
+    if (document.readyState === 'complete') warm();
+    else window.addEventListener('load', warm, { once: true });
   }
 
   // Options kept at their defaults so this request matches the <link rel=preload>
