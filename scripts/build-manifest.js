@@ -35,12 +35,17 @@ const LABEL_OVERRIDES = {
   'city-pop-singles': 'City Pop Singles',
   'savior': 'SAVIOR',
   'txt-lemon': 'Lemon',
+  'txt-wear-suits': 'Wear Suits',
+  'txt-side-profile': 'Side Profiles',
+  'drama-poster': 'Drama Poster',
+  'tak-adil': 'Tak Adil',
   'yeonjun-ghost-girl': 'Ghost Girl',
   'taehyun-highball': 'Highball',
   'beomgyu-retro-poster': 'Beomgyu Retro',
   'kai-retro': 'Kai Retro',
   'han-jisung-retro-poster': 'Han Jisung Retro',
   'nicholas-retro-poster': 'Nicholas Retro',
+  'enhypen': 'ENHYPEN',
   'misc': 'Odds & Ends',
 };
 
@@ -52,34 +57,22 @@ const CATEGORY_ORDER = [
   'bed-of-thorns',
   'savior',
   'txt-lemon',
+  'txt-wear-suits',
+  'txt-side-profile',
+  'drama-poster',
+  'tak-adil',
   'yeonjun-ghost-girl',
   'taehyun-highball',
   'beomgyu-retro-poster',
   'kai-retro',
   'han-jisung-retro-poster',
   'nicholas-retro-poster',
+  'enhypen',
   'misc',
 ];
 
-// How each section is laid out. Default is 'masonry'. The page reads this
-// straight from the manifest, so changing a section's shape is one line here.
-//   masonry   columns, mixed heights, nothing cropped   (the default)
-//   carousel  one horizontal scroll-snap row
-//   feature   first image large, the rest smaller beneath it
-//   uniform   equal cover-cropped cards on a grid
-const LAYOUTS = {
-  'city-pop-singles': 'carousel',
-  'savior': 'feature',
-  'taehyun-highball': 'carousel',
-  'kai-retro': 'uniform',
-  'misc': 'uniform',
-};
-
-const DEFAULT_LAYOUT = 'masonry';
-const VALID_LAYOUTS = new Set(['masonry', 'carousel', 'feature', 'uniform']);
-
 // Longest first — 'huening-kai' has to win against a shorter prefix match.
-const MEMBERS = ['tomorrow-x-together', 'huening-kai', 'han-jisung', 'beomgyu', 'nicholas', 'yeonjun', 'taehyun', 'soobin', 'zizan', 'kai'];
+const MEMBERS = ['tomorrow-x-together', 'huening-kai', 'han-jisung', 'sunghoon', 'beomgyu', 'nicholas', 'jungwon', 'yeonjun', 'taehyun', 'soobin', 'zizan', 'kai'];
 
 // Words the title-caser must not touch.
 const WORD_OVERRIDES = { txt: 'TXT', vol: 'Vol', ii: 'II', iii: 'III', iv: 'IV', v: 'V' };
@@ -136,6 +129,22 @@ function altFor(category, label, filename) {
   const rest = stem.slice(member.length).replace(/^-/, '');
   const who = titleCase(member);
   return rest ? `${who}, ${titleCase(rest)} — ${label}` : `${who} — ${label}`;
+}
+
+// The same parse altFor runs, but kept apart instead of joined into a sentence.
+// The grid's hover scrim wants two lines, and the series is already the heading
+// above it, so it is dropped here. An ALT_OVERRIDES entry is a whole sentence
+// with no seam to split on, so an overridden file gets no caption rather than a
+// guessed one.
+function captionFor(category, filename) {
+  if (ALT_OVERRIDES[`${category}/${filename}`]) return { member: null, title: null };
+
+  const stem = path.basename(filename, path.extname(filename)).replace(/^\d+-/, '');
+  const member = MEMBERS.find((m) => stem === m || stem.startsWith(`${m}-`));
+
+  if (!member) return { member: null, title: titleCase(stem) };
+  const rest = stem.slice(member.length).replace(/^-/, '');
+  return { member: titleCase(member), title: rest ? titleCase(rest) : null };
 }
 
 // Box filter: each destination pixel averages the source rectangle it covers.
@@ -321,6 +330,7 @@ function main() {
         tone: entry.tone,
         lqip: entry.lqip,
         alt: altFor(slug, label, file),
+        ...captionFor(slug, file),
       });
     }
 
@@ -328,12 +338,7 @@ function main() {
       console.warn(`  ${slug}: no images, skipped`);
       continue;
     }
-    let layout = LAYOUTS[slug] || DEFAULT_LAYOUT;
-    if (!VALID_LAYOUTS.has(layout)) {
-      warnings.push(`unknown layout '${layout}' for ${slug}, using ${DEFAULT_LAYOUT}`);
-      layout = DEFAULT_LAYOUT;
-    }
-    categories.push({ slug, label, layout, images });
+    categories.push({ slug, label, images });
   }
 
   // Prune derivatives whose source is gone or was replaced.

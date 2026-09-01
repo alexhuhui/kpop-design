@@ -53,22 +53,30 @@ The build derives the alt text from the filename and the series label. `01-soobi
 becomes *"Yeonjun, Ghost Girl — City Pop Singles"*. Keep filenames in lowercase kebab-case and
 this stays correct on its own.
 
-### Layouts
+### The wall
 
-Sections do not have to look alike. `LAYOUTS` in the build script gives a folder one of these
-shapes:
+Every series is jumbled into one masonry grid — two columns on a phone, up to six on a wide
+screen — rather than sitting in its own labelled block. Designs from different series are
+interleaved round-robin, so the page reads as a continuous run.
 
-| Layout | Looks like | Good for |
-| --- | --- | --- |
-| `masonry` | Columns of mixed heights. Nothing is cropped. **The default.** | Most series |
-| `carousel` | One horizontal row that snaps, and bleeds off both edges | A short set you want read in order |
-| `feature` | The first image at full width, the rest small below it | A hero poster, or a series with one lead image |
-| `uniform` | Equal cover-cropped cards on a grid | Loose sets where consistency beats the exact crop |
+There is no per-series shape to configure. The chips filter the wall; they never split it. Pick
+a series from the chips and you get the same grid with everything else hidden, in that series'
+own numbered order.
 
-A cropping layout stops cropping below 480px. In a single column a crop only loses artwork.
+The series name still travels with each design: it is in the alt text, in the hover caption on
+a desktop, and in the viewer's bottom bar on a phone.
 
-The mix applies to **All** only. Select a single series from the chips and every section returns
-to `masonry`, so you see that series at its own sizes and whole.
+### The filter chips
+
+The chips wrap into rows rather than scrolling sideways, and the bar clamps to two rows. On a
+desktop that is every chip at once. On a narrower screen a **Show all** button opens the rest,
+and picking a chip closes it again. Chips below the clamp are not reachable by keyboard until
+the bar is opened, which is what makes the button a real disclosure rather than decoration.
+
+A folder holding one member's designs should be named for the **group**, not the member —
+`images/enhypen/` with files `01-sunghoon.png`, `07-jungwon.png`. A folder named `sunghoon`
+gives you the alt text "Sunghoon — Sunghoon", and it spends a filter chip on a person instead of
+on a body of work.
 
 ---
 
@@ -120,7 +128,6 @@ Everything you want to change by hand sits in one block at the top of
 | --- | --- |
 | `LABEL_OVERRIDES` | The casing that the title-caser gets wrong — `chikai` becomes `CHIKAI`. Without an entry, a folder named `bed-of-thorns` becomes *Bed of Thorns*. |
 | `CATEGORY_ORDER` | The order of the filter buttons. The build appends anything unlisted alphabetically. |
-| `LAYOUTS` | The shape of a series on the page — `masonry`, `carousel`, `feature` or `uniform`. An unlisted folder gets `masonry`. |
 | `MEMBERS` | The names that the alt-text builder must split off the front of a filename. Longest first. |
 | `WORD_OVERRIDES` | The words the title-caser must not touch — `txt` becomes `TXT`. |
 | `ALT_OVERRIDES` | The full alt text for one `'<series>/<file>.png'`, when the derived text is not good enough. |
@@ -129,12 +136,12 @@ Everything you want to change by hand sits in one block at the top of
 
 ## How it loads fast
 
-The gallery holds 43 print-resolution designs, so the whole design is about not sending print
+The gallery holds 66 print-resolution designs, so the whole design is about not sending print
 resolution to a phone.
 
 **Resized derivatives.** The build decodes each PNG and writes JPEG copies at 400, 800, 1200
 and 1600 px into `images/_derived/`. The page serves those through `srcset` and `sizes`, so a
-phone in a single-column layout downloads a **30 KB** file instead of a **2.9 MB** one. The
+phone downloads a **30 KB** file instead of a **2.9 MB** one. The
 build never modifies your originals. Quality is tuned per width. The film grain in these
 designs is expensive to encode and invisible at thumbnail size.
 
@@ -143,7 +150,7 @@ data URI, plus its average color. One request for `designs.json` paints the enti
 tile is ever blank white. This is the idea behind a sprite sheet, applied to placeholders.
 
 **No layout shift.** The intrinsic `width` and `height` come from the manifest, so every tile
-reserves its exact box before a byte arrives. The masonry never reflows while the images
+reserves its exact box before a byte arrives. The wall never reflows while the images
 stream in.
 
 **Versioned URLs.** Every image URL carries a `?v=` hash of the contents of the file. Replace
@@ -160,12 +167,12 @@ after you add one design re-encodes one design.
 The build reports what it did, and it warns instead of shipping something broken:
 
 ```
-designs.json: 43 images in 13 categories, 85.1 KB (0 built, 43 cached)
-derivatives:  139 files, 145.3 MB source -> 20.4 MB shipped (86% smaller)
+designs.json: 66 images in 18 categories, 133.6 KB (0 built, 66 cached)
+derivatives:  221 files, 181.1 MB source -> 29.7 MB shipped (84% smaller)
 ```
 
-It flags byte-identical duplicates, two designs that claim the same link, an unknown layout
-name, and any derivative that the manifest promises but the disk does not hold.
+It flags byte-identical duplicates, two designs that claim the same link, and any derivative
+that the manifest promises but the disk does not hold.
 
 ---
 
@@ -310,14 +317,14 @@ a preview before a push.
 `.github/workflows/pages.yml` runs on every push to `main`. It installs Node, runs the build,
 copies `index.html`, `style.css`, `app.js`, `designs.json` and `images/_derived/` into a
 `_site` folder, and publishes that folder to Pages. It never uploads the source PNGs, because
-the page never requests them. The deployed site is about 20 MB instead of 145 MB.
+the page never requests them. The deployed site is about 30 MB instead of 181 MB.
 
 The workflow caches derivatives between runs, keyed on the source PNGs, so a push that adds one
 design re-encodes one design.
 
 ### Repository size
 
-Your source PNGs stay in the repository. They are **145 MB across 43 files**, and
+Your source PNGs stay in the repository. They are **181 MB across 66 files**, and
 `images/savior/01-savior.png` alone is **37 MB**. Git keeps every version of a binary file
 forever.
 

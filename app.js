@@ -8,25 +8,25 @@
 
   var MANIFEST_URL = 'designs.json';
 
-  // Above-the-fold tiles load eagerly at high priority; everything else waits
-  // for the viewport.
-  var EAGER_COUNT = 6;
+  // Only the very first tile loads eagerly. It used to be the first six, back
+  // when a section was a short row and DOM order tracked reading order. A
+  // multicol wall fills column 1 top to bottom before it starts column 2, so
+  // "the first six in the DOM" is six tiles down the left edge — mostly below
+  // the fold — while the tops of the other columns sit above it waiting. The
+  // browser's own lazy heuristic is viewport-aware and gets this right; a
+  // DOM-order guess cannot. So: one eager tile to anchor the paint, and no
+  // guessing after it.
+  var EAGER_COUNT = 1;
 
-  // How many full-size files to warm after load. Lower than EAGER_COUNT: a
-  // full-size file is about five times its tile, and a reader opens one design
-  // first, not six.
+  // How many full-size files to warm after load. A full-size file is about
+  // five times its tile, and a reader opens one design first, not six.
   var PREFETCH_COUNT = 3;
 
-  // What each layout in style.css actually renders a tile at. This is how the
+  // What the grid actually renders a tile at, per breakpoint. This is how the
   // browser picks a srcset entry before layout has happened, so a wrong figure
-  // here costs exactly the bytes the derivatives exist to save.
-  var SIZES = {
-    masonry: '(min-width: 1440px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw',
-    carousel: 'min(70vw, 300px)',
-    uniform: '(min-width: 480px) 280px, 100vw',
-    feature: '(min-width: 480px) 260px, 100vw',
-    hero: '100vw'
-  };
+  // here costs exactly the bytes the derivatives exist to save. One wall, one
+  // string: the column counts below are the ones in style.css.
+  var GRID_SIZES = '(min-width: 2000px) 17vw, (min-width: 1600px) 20vw, (min-width: 1440px) 25vw, (min-width: 1024px) 33vw, 50vw';
 
   // Past ten seconds a reader has given up and started something else, so a
   // request that has not answered by then is a failure worth reporting.
@@ -37,13 +37,16 @@
 
   var els = {
     filters: document.getElementById('filters'),
+    filtersMore: document.getElementById('filters-more'),
+    filtersMoreText: document.getElementById('filters-more-text'),
     search: document.getElementById('search'),
-    sections: document.getElementById('sections'),
+    grid: document.getElementById('grid'),
     status: document.getElementById('status'),
     tally: document.getElementById('tally'),
     lightbox: document.getElementById('lightbox'),
     image: document.getElementById('lightbox-img'),
     counter: document.getElementById('lightbox-counter'),
+    caption: document.getElementById('lightbox-cap'),
     close: document.getElementById('lightbox-close'),
     prev: document.getElementById('lightbox-prev'),
     next: document.getElementById('lightbox-next')
@@ -51,7 +54,7 @@
 
   var state = {
     categories: [],
-    all: [],          // every image, flattened, in manifest order
+    all: [],          // every image, flattened, in wall order
     visible: [],      // what is on screen right now — what the arrow keys walk
     filter: 'all',
     query: '',        // the search box. Deliberately not in the URL: a live
@@ -138,7 +141,7 @@
     img.style.backgroundColor = item.tone;
     if (item.lqip) img.style.backgroundImage = 'url("' + item.lqip + '")';
 
-    img.sizes = SIZES.masonry;
+    img.sizes = GRID_SIZES;
     img.srcset = item.srcset.map(function (s) { return s.src + ' ' + s.w + 'w'; }).join(', ');
     img.src = item.srcset[0].src;
     img.decoding = 'async';
@@ -160,6 +163,42 @@
     }
 
     btn.appendChild(img);
+
+    // Hover/focus caption. aria-hidden because the button's accessible name is
+    // already the image's alt, which says all of this and the series besides —
+    // announcing it twice is worse than not announcing it. CSS hides the whole
+    // scrim under (hover: none), so a phone never shows it and never pays for
+    // the nodes' paint.
+    //
+    // The series is named here. It used to be dropped, because the section
+    // heading directly above already said it — the wall has no headings, so
+    // this is the only place a desktop reader is told which series a design
+    // belongs to without opening it.
+    if (item.member || item.title) {
+      var cap = document.createElement('span');
+      cap.className = 'tile__cap';
+      cap.setAttribute('aria-hidden', 'true');
+      if (item.member) {
+        var who = document.createElement('span');
+        who.className = 'tile__who';
+        who.textContent = item.member;
+        cap.appendChild(who);
+      }
+      if (item.title) {
+        var what = document.createElement('span');
+        what.className = 'tile__what';
+        what.textContent = item.title;
+        cap.appendChild(what);
+      }
+      if (item.categoryLabel) {
+        var where = document.createElement('span');
+        where.className = 'tile__where';
+        where.textContent = item.categoryLabel;
+        cap.appendChild(where);
+      }
+      btn.appendChild(cap);
+    }
+
     li.appendChild(btn);
 
     btn.addEventListener('click', function () { open(item); });
@@ -176,74 +215,30 @@
     return li;
   }
 
-  // One <section> per series, each carrying its layout from the manifest. The
-  // page never hard-codes a shape; moving a series from masonry to carousel is
-  // a line in the build script.
-  function buildSections() {
-    var frag = document.createDocumentFragment();
-    var n = 0;
-
-    state.categories.forEach(function (c) {
-      var section = document.createElement('section');
-      section.className = 'section';
-      section.dataset.category = c.slug;
-
-      var title = document.createElement('h2');
-      title.className = 'section__title';
-      title.id = 'series-' + c.slug;
-      title.textContent = c.label;
-      section.appendChild(title);
-
-      var list = document.createElement('ul');
-      list.className = 'section__items';
-
-      c.items.forEach(function (item) { list.appendChild(buildTile(item, n++)); });
-
-      section.appendChild(list);
-      frag.appendChild(section);
-
-      c.section = section;
-      c.list = list;
-      c.titleId = title.id;
-      c.shape = c.layout || 'masonry';
-      c.current = null;
-      applyLayout(c, c.shape);
-    });
-
-    els.sections.appendChild(frag);
+  // Round-robin across the series: one from each in turn, then round again.
+  // Consecutive tiles are therefore almost never the same series, which is the
+  // whole point of a jumbled wall. It is deterministic — the same order every
+  // load — so a shared link's neighbours never move, and prev/next means the
+  // same thing twice. Relative order inside a series is preserved, so filtering
+  // to one chip still shows 01, 02, 03 in that order.
+  function interleave(groups) {
+    var out = [];
+    var most = 0;
+    groups.forEach(function (g) { if (g.length > most) most = g.length; });
+    for (var i = 0; i < most; i++) {
+      groups.forEach(function (g) { if (i < g.length) out.push(g[i]); });
+    }
+    return out;
   }
 
-  // The mixed shapes are what the whole gallery looks like. Inside one series
-  // there is nothing to distinguish it from, so a chip drops back to masonry:
-  // columns, nothing cropped, every design at its own size.
-  function applyLayout(c, layout) {
-    if (c.current === layout) return;
-    c.current = layout;
-    c.section.dataset.layout = layout;
-
-    // A carousel is a scroll container, so it has to be reachable and
-    // scrollable from the keyboard in its own right. Nothing else is.
-    // role="list" stays on in every shape. A `list-style: none` <ul> loses its
-    // list semantics in VoiceOver, and role="group" on the carousel used to
-    // take them away everywhere else too, which orphaned every <li> under it.
-    c.list.setAttribute('role', 'list');
-
-    if (layout === 'carousel') {
-      c.list.tabIndex = 0;
-      c.list.setAttribute('aria-labelledby', c.titleId);
-    } else {
-      c.list.removeAttribute('tabindex');
-      c.list.removeAttribute('aria-labelledby');
-      // A carousel that stopped being one must not keep its scroll offset.
-      c.list.scrollLeft = 0;
-    }
-
-    // sizes has to follow the shape, or the browser picks a srcset entry for a
-    // tile width that no longer exists.
-    c.items.forEach(function (item, i) {
-      var key = layout === 'feature' && i === 0 ? 'hero' : layout;
-      item.img.sizes = SIZES[key] || SIZES.masonry;
-    });
+  // One flat list, one shape. There is no per-series section and no heading:
+  // in the All view a heading would cut the wall into 17 pieces, and in a
+  // filtered view it would label the only thing on screen. The series is not
+  // lost — it is in every tile's alt text and in the hover caption.
+  function buildGrid() {
+    var frag = document.createDocumentFragment();
+    state.all.forEach(function (item, i) { frag.appendChild(buildTile(item, i)); });
+    els.grid.appendChild(frag);
   }
 
   function buildFilters() {
@@ -272,6 +267,9 @@
 
       b.addEventListener('click', function () {
         setFilter(def.slug);
+        // Snap shut on a pick. An expanded bar is sticky and tall; leaving it
+        // open would cover the very wall the pick just filtered.
+        collapseFilters();
         refresh();
         writeHash();
       });
@@ -279,6 +277,73 @@
     });
 
     els.filters.appendChild(frag);
+
+    els.filtersMore.addEventListener('click', function () {
+      setFiltersCollapsed(els.filters.dataset.collapsed !== 'true');
+    });
+
+    // The clamp is a CSS length and the chips are text, so only layout knows
+    // whether they overflow. Measure after the first paint, and again whenever
+    // the bar is resized — a rotation or a window drag changes the answer.
+    measureFilters();
+    if (window.ResizeObserver) {
+      new ResizeObserver(measureFilters).observe(els.filters);
+    } else {
+      window.addEventListener('resize', measureFilters);
+    }
+  }
+
+  // Collapsed, a chip below the clamp is clipped by overflow: hidden. Clipped
+  // is not the same as gone: without this the chip keeps its place in the tab
+  // order, and Tab scrolls it into a box the design says is two rows tall —
+  // a focus ring on something the reader cannot see (WCAG 2.2, 2.4.11).
+  // `inert` is the honest description: those chips are unavailable until the
+  // disclosure that owns them is opened.
+  function syncChipInertness() {
+    var collapsed = els.filters.dataset.collapsed === 'true';
+    var limit = els.filters.clientHeight;
+    Array.prototype.forEach.call(els.filters.children, function (b) {
+      var clipped = collapsed && b.offsetTop + b.offsetHeight > limit + 1;
+      if (clipped) b.setAttribute('inert', '');
+      else b.removeAttribute('inert');
+    });
+  }
+
+  function setFiltersCollapsed(collapsed) {
+    els.filters.dataset.collapsed = String(collapsed);
+    els.filtersMore.setAttribute('aria-expanded', String(!collapsed));
+    els.filtersMoreText.textContent = collapsed ? 'Show all' : 'Show less';
+    syncChipInertness();
+  }
+
+  function collapseFilters() {
+    if (!els.filtersMore.hidden) setFiltersCollapsed(true);
+  }
+
+  // Does the row actually overflow two rows? Ask by unclamping for one frame
+  // and comparing. Cheaper than reimplementing flex wrapping in JS, and it
+  // cannot disagree with the CSS, because it is the CSS that answers.
+  var lastFilterWidth = -1;
+
+  function measureFilters() {
+    // The observer watches the same element this function resizes, so it would
+    // re-enter itself forever. Only a width change can alter where the chips
+    // wrap, so a width that has not moved needs no remeasure.
+    var width = els.filters.clientWidth;
+    if (width === lastFilterWidth) return;
+    lastFilterWidth = width;
+
+    var wasCollapsed = els.filters.dataset.collapsed === 'true';
+    els.filters.dataset.collapsed = 'false';
+    var full = els.filters.scrollHeight;
+    els.filters.dataset.collapsed = 'true';
+    var clamped = els.filters.clientHeight;
+    var overflows = full > clamped + 1;
+
+    els.filtersMore.hidden = !overflows;
+    // Everything fits: no clamp, no control, nothing inert. A wide desktop gets
+    // the whole bar with no affordance for a state it can never be in.
+    setFiltersCollapsed(overflows ? wasCollapsed : false);
   }
 
   // -------------------------------------------------------------------------
@@ -292,33 +357,20 @@
 
   // The chip and the search box compose: a design has to satisfy both. Every
   // token has to match, so 'yeonjun ghost' narrows rather than widens.
+  //
+  // One pass over one list. A hidden tile leaves the flow, so the surviving
+  // tiles close up into a wall with no gaps and no empty headings to clean up.
   function refresh() {
     var tokens = state.query.toLowerCase().split(/\s+/).filter(Boolean);
+    var all = state.filter === 'all';
 
     state.visible = [];
 
-    // Every shape at once is the 'All' view. A single series gets a plain grid.
-    var mixed = state.filter === 'all';
-
-    state.categories.forEach(function (c) {
-      var inFilter = mixed || state.filter === c.slug;
-      var shown = 0;
-
-      applyLayout(c, mixed ? c.shape : 'masonry');
-
-      c.items.forEach(function (item) {
-        var show = inFilter && tokens.every(function (t) {
-          return item.haystack.indexOf(t) !== -1;
-        });
-        item.el.hidden = !show;
-        if (show) {
-          state.visible.push(item);
-          shown++;
-        }
-      });
-
-      // A section with nothing left in it takes its heading with it.
-      c.section.hidden = shown === 0;
+    state.all.forEach(function (item) {
+      var show = (all || item.category === state.filter) &&
+        tokens.every(function (t) { return item.haystack.indexOf(t) !== -1; });
+      item.el.hidden = !show;
+      if (show) state.visible.push(item);
     });
 
     Array.prototype.forEach.call(els.filters.children, function (b) {
@@ -330,14 +382,14 @@
 
     if (n) {
       clearNotice();
-      els.sections.hidden = false;
+      els.grid.hidden = false;
       return;
     }
 
-    els.sections.hidden = true;
+    els.grid.hidden = true;
     if (state.query) {
       // The query reaches the page through textContent, never innerHTML.
-      notice('No match for \u201c' + state.query + '\u201d',
+      notice('No match for “' + state.query + '”',
         'Try a member name or a series, or clear the search.');
     } else {
       notice('Nothing in this series yet',
@@ -445,10 +497,31 @@
     var item = state.visible[state.index];
     if (!item) return;
 
+    // Fade the outgoing frame out, and let the load event fade the new one in.
+    // A cached image is already complete by the next line, so that case never
+    // blinks; a failed one still restores, or the viewer would sit blank.
+    els.image.style.opacity = '0';
+    els.image.onload = els.image.onerror = function () { els.image.style.opacity = ''; };
     els.image.src = item.full;
     els.image.alt = item.alt;
     els.image.style.transform = '';
-    els.image.style.opacity = '';
+    if (els.image.complete) els.image.style.opacity = '';
+
+    // The grid caption never renders on a touch device, so this is the only
+    // place a phone is told what it is looking at. The series is included here
+    // — unlike on the tile — because there is no section heading above it.
+    els.caption.textContent = '';
+    if (item.member) {
+      var who = document.createElement('b');
+      who.textContent = item.member;
+      els.caption.appendChild(who);
+    }
+    var rest = [item.title, item.categoryLabel].filter(Boolean).join(' · ');
+    if (rest) {
+      var what = document.createElement('span');
+      what.textContent = (item.member ? ' · ' : '') + rest;
+      els.caption.appendChild(what);
+    }
 
     els.counter.textContent = (state.index + 1) + ' / ' + state.visible.length;
 
@@ -491,8 +564,10 @@
     els.lightbox.setAttribute('inert', '');
     els.lightbox.hidden = true;
     // Drop the decoded bitmap rather than holding a full-size image in memory.
+    els.image.onload = els.image.onerror = null;
     els.image.removeAttribute('src');
     els.image.alt = '';
+    els.caption.textContent = '';
 
     unlockScroll();
     writeHash();
@@ -656,12 +731,14 @@
         // One lowercase string per design is all the search needs: the alt text
         // already carries the member, the descriptor and the series.
         item.haystack = (item.alt + ' ' + c.label + ' ' + item.id).toLowerCase();
-        state.all.push(item);
         return item;
       });
     });
 
-    buildSections();
+    // The wall order, not the manifest order.
+    state.all = interleave(state.categories.map(function (c) { return c.items; }));
+
+    buildGrid();
     buildFilters();
     applyHash();
 

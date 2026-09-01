@@ -63,8 +63,17 @@
     </div>
   </header>
 
+  <!-- The chips wrap into rows and clamp to two. The toggle is in the markup
+       rather than built in JS so it has a stable id, but app.js removes it
+       outright at any width where the chips already fit — a disclosure for
+       nothing is worse than no disclosure. -->
   <nav class="filters" aria-label="Filter designs">
-    <div class="filters__scroller" id="filters" role="group"></div>
+    <div class="filters__list" id="filters" role="group" data-collapsed="true"></div>
+    <button class="filters__more" id="filters-more" type="button"
+            aria-expanded="false" aria-controls="filters" hidden>
+      <span id="filters-more-text">Show all</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
   </nav>
 </div>
 
@@ -74,9 +83,11 @@
   <div class="notice" id="status" role="status" aria-live="polite">
     <p class="notice__body">Loading designs…</p>
   </div>
-  <!-- One section per series. Each carries its own layout from the manifest,
-       so a carousel and a masonry can sit on the same page. -->
-  <div id="sections"></div>
+  <!-- One wall. Every series is jumbled into it, so the page reads as a single
+       run of designs rather than 17 labelled blocks. The chips filter it; they
+       do not carve it up. role="list" is explicit because list-style: none
+       strips list semantics in VoiceOver. -->
+  <ul class="grid" id="grid" role="list"></ul>
 
   <!-- Result count, for screen readers only. The visible count lives on the
        filter chips. -->
@@ -96,7 +107,15 @@
     <img class="lightbox__img" id="lightbox-img" alt="">
   </figure>
 
-  <p class="lightbox__counter" id="lightbox-counter" aria-live="polite"></p>
+  <!-- The grid caption is desktop-only by construction, so on a phone this bar
+       is the only place a design's name appears. Name and counter share one
+       row, so a long name and the position can never overlap on a narrow
+       screen. One live region for both: arrowing announces "Soobin, CHIKAI,
+       3 of 57" in one breath instead of two interleaved ones. -->
+  <div class="lightbox__bar" role="status" aria-live="polite">
+    <p class="lightbox__cap" id="lightbox-cap"></p>
+    <p class="lightbox__counter" id="lightbox-counter"></p>
+  </div>
 
   <button class="lightbox__btn lightbox__btn--close" id="lightbox-close" type="button" data-close aria-label="Close viewer">
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19"/></svg>
