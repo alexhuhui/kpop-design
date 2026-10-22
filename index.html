@@ -10,10 +10,11 @@
      analytics, no inline script or style. Say so, so a future edit that breaks
      that rule fails in the console instead of shipping. `default-src 'none'`
      denies first and names the exceptions, and `data:` is only on img-src for
-     the manifest's blurred placeholders and the favicon.
+     the manifest's blurred placeholders and the favicon. worker-src is there
+     for sw.js, the offline cache, and names this origin only.
      frame-ancestors is left out on purpose: a browser ignores it in a meta tag,
      and GitHub Pages cannot send it as a header. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="theme-color" content="#faf8f5">
 <!-- Link previews. og:image is relative on purpose: the site has moved host
      before, and every scraper worth having resolves it against the page URL. -->
@@ -38,34 +39,54 @@
 
 <a class="skip-link" href="#gallery">Skip to the gallery</a>
 
-<!-- Masthead and filters share one sticky parent so they can never overlap.
-     Below 640px the parent stops sticking and only the filter bar pins, which
-     hands the header's height back to the images. -->
+<!-- The masthead scrolls away and only the filter bar pins, at every width,
+     which hands the header's height back to the images. The wrapper is
+     display: contents, so the bar can stick against the page. -->
 <div class="topbar">
+  <!-- Editorial, the way Are.na and Savee open a page: the name in big type
+       and one line of facts, with no logo mark. The tools sit at the right. -->
   <header class="masthead">
     <div class="masthead__id">
       <h1 class="masthead__name">Alex Designs</h1>
       <p class="masthead__line">Designs done for K-Pop idols for fun!</p>
+      <!-- Filled in from the manifest, so the numbers can never go stale. -->
+      <p class="masthead__stats" id="stats"></p>
     </div>
 
-    <div class="search">
-      <label class="sr-only" for="search">Search designs</label>
-      <svg class="search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>
-      </svg>
-      <!-- type=search, so mobile keyboards offer a search key and the browser
-           draws its own clear control. The three off switches are for phones:
-           iOS otherwise capitalises and autocorrects a member's name into an
-           English word before the first keystroke is even filtered. -->
-      <input class="search__input" id="search" type="search" autocomplete="off"
-             autocorrect="off" autocapitalize="none" spellcheck="false"
-             enterkeyhint="search" placeholder="Search a member or series">
+    <div class="masthead__tools">
+      <div class="search">
+        <label class="sr-only" for="search">Search designs</label>
+        <svg class="search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>
+        </svg>
+        <!-- type=search, so mobile keyboards offer a search key and the browser
+             draws its own clear control. The three off switches are for phones:
+             iOS otherwise capitalises and autocorrects a member's name into an
+             English word before the first keystroke is even filtered. -->
+        <input class="search__input" id="search" type="search" autocomplete="off"
+               autocorrect="off" autocapitalize="none" spellcheck="false"
+               enterkeyhint="search" placeholder="Member or series">
+      </div>
+
+      <!-- Google Photos' zoom: the same wall at three row heights. -->
+      <div class="sizes" id="sizes" role="group" aria-label="Tile size">
+        <button class="size" type="button" data-size="s" aria-pressed="false" aria-label="Small tiles" aria-keyshortcuts="1">S</button>
+        <button class="size" type="button" data-size="m" aria-pressed="true" aria-label="Medium tiles" aria-keyshortcuts="2">M</button>
+        <button class="size" type="button" data-size="l" aria-pressed="false" aria-label="Large tiles" aria-keyshortcuts="3">L</button>
+      </div>
+
+      <button class="tool" id="shuffle" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+        <span class="tool__text">Shuffle</span>
+      </button>
+
+      <button class="tool tool--keys" id="keys-open" type="button" aria-label="Keyboard shortcuts" aria-keyshortcuts="?">?</button>
     </div>
   </header>
 
-  <!-- The chips wrap into rows and clamp to two. The toggle is in the markup
+  <!-- The tabs wrap into rows and clamp to two. The toggle is in the markup
        rather than built in JS so it has a stable id, but app.js removes it
-       outright at any width where the chips already fit — a disclosure for
+       outright at any width where the tabs already fit — a disclosure for
        nothing is worse than no disclosure. -->
   <nav class="filters" aria-label="Filter designs">
     <div class="filters__list" id="filters" role="group" data-collapsed="true"></div>
@@ -83,52 +104,100 @@
   <div class="notice" id="status" role="status" aria-live="polite">
     <p class="notice__body">Loading designs…</p>
   </div>
-  <!-- One wall. Every series is jumbled into it, so the page reads as a single
-       run of designs rather than 17 labelled blocks. The chips filter it; they
-       do not carve it up. role="list" is explicit because list-style: none
-       strips list semantics in VoiceOver. -->
+
+  <!-- An Are.na channel head: shown only while one series is picked, so the
+       All view stays one unbroken wall. -->
+  <div class="serieshead" id="serieshead" hidden>
+    <h2 class="serieshead__title" id="serieshead-title"></h2>
+    <p class="serieshead__count" id="serieshead-count"></p>
+  </div>
+
+  <!-- One wall in justified rows. Every series is jumbled into it, and the
+       tabs filter it rather than carving it up. role="list" is explicit
+       because list-style: none strips list semantics in VoiceOver. -->
   <ul class="grid" id="grid" role="list"></ul>
 
   <!-- Result count, for screen readers only. The visible count lives on the
-       filter chips. -->
+       filter tabs. -->
   <p class="sr-only" id="tally" role="status" aria-live="polite"></p>
 </main>
 
 <footer class="footer">
-  <p>Mostly designed using Canva.</p>
+  <p>All designs made in Canva.</p>
 </footer>
 
-<!-- Kept in the DOM rather than built on open, so the first lightbox is as
-     quick as the tenth. `inert` keeps it off the tab order while closed. -->
-<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Design viewer" hidden inert>
-  <div class="lightbox__backdrop" data-close></div>
-
-  <figure class="lightbox__stage">
-    <img class="lightbox__img" id="lightbox-img" alt="">
-  </figure>
-
-  <!-- The grid caption is desktop-only by construction, so on a phone this bar
-       is the only place a design's name appears. Name and counter share one
-       row, so a long name and the position can never overlap on a narrow
-       screen. One live region for both: arrowing announces "Soobin, CHIKAI,
-       3 of 57" in one breath instead of two interleaved ones. -->
-  <div class="lightbox__bar" role="status" aria-live="polite">
-    <p class="lightbox__cap" id="lightbox-cap"></p>
-    <p class="lightbox__counter" id="lightbox-counter"></p>
+<!-- The viewer. A dark full-screen lightbox, Flickr's and Apple Photos': the
+     design as large as the screen allows, a slim bar of details, and the rest
+     of the series as a filmstrip. Kept in the DOM rather than built on open,
+     so the first open is as quick as the tenth. `inert` keeps it off the tab
+     order while closed. -->
+<div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-labelledby="viewer-who" hidden inert>
+  <div class="viewer__top">
+    <p class="viewer__counter" id="viewer-counter"></p>
+    <div class="viewer__actions">
+      <button class="viewer__btn" id="viewer-play" type="button" aria-pressed="false" aria-label="Play slideshow" aria-keyshortcuts="Space">
+        <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 4l13 8-13 8z"/></svg>
+        <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 4v16M16 4v16"/></svg>
+        <span class="viewer__btn-text" id="viewer-play-text">Slideshow</span>
+      </button>
+      <button class="copy" id="viewer-copy" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+        Copy link
+      </button>
+      <button class="viewer__btn viewer__btn--round" id="viewer-close" type="button" aria-label="Close" aria-keyshortcuts="Escape">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
   </div>
 
-  <button class="lightbox__btn lightbox__btn--close" id="lightbox-close" type="button" data-close aria-label="Close viewer">
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19"/></svg>
-  </button>
+  <div class="viewer__stage" id="viewer-stage">
+    <img class="viewer__img" id="viewer-img" alt="">
+    <button class="viewer__step viewer__step--prev" id="viewer-prev" type="button" aria-label="Previous design" aria-keyshortcuts="ArrowLeft">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 4L7 12l8 8"/></svg>
+    </button>
+    <button class="viewer__step viewer__step--next" id="viewer-next" type="button" aria-label="Next design" aria-keyshortcuts="ArrowRight">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4l8 8-8 8"/></svg>
+    </button>
+  </div>
 
-  <button class="lightbox__btn lightbox__btn--prev" id="lightbox-prev" type="button" aria-label="Previous design">
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 4L7 12l8 8"/></svg>
-  </button>
+  <div class="viewer__info">
+    <div class="viewer__names">
+      <h2 class="viewer__who" id="viewer-who"></h2>
+      <p class="viewer__what" id="viewer-what"></p>
+    </div>
+    <button class="viewer__series" id="viewer-series" type="button"></button>
+  </div>
 
-  <button class="lightbox__btn lightbox__btn--next" id="lightbox-next" type="button" aria-label="Next design">
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4l8 8-8 8"/></svg>
-  </button>
+  <!-- The rest of this series, one prebuilt thumbnail per design moved in on
+       every step. aria-current marks the one on screen. -->
+  <ul class="strip" id="viewer-strip" role="list" aria-label="This series"></ul>
+
+  <!-- Arrowing announces the name and the position in one breath. The visible
+       details say the same thing, so this one is for screen readers. -->
+  <p class="sr-only" id="viewer-status" role="status" aria-live="polite"></p>
 </div>
+
+<!-- The shortcut sheet. A native <dialog>: showModal() gives it the top layer,
+     a focus trap and Escape for free. -->
+<dialog class="keys" id="keys" aria-labelledby="keys-title">
+  <h2 class="keys__title" id="keys-title">Keyboard shortcuts</h2>
+  <dl class="keys__list">
+    <div><dt><kbd>/</kbd></dt><dd>Search</dd></div>
+    <div><dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Small, medium, large tiles</dd></div>
+    <div><dt><kbd>←</kbd> <kbd>→</kbd> or <kbd>K</kbd> <kbd>J</kbd></dt><dd>Previous, next design</dd></div>
+    <div><dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>First, last design</dd></div>
+    <div><dt><kbd>Space</kbd></dt><dd>Play or pause the slideshow</dd></div>
+    <div><dt><kbd>Z</kbd></dt><dd>Zoom in or out</dd></div>
+    <div><dt><kbd>Esc</kbd></dt><dd>Close, or clear the search</dd></div>
+    <div><dt><kbd>?</kbd></dt><dd>This list</dd></div>
+  </dl>
+  <!-- A button, not <form method="dialog">: the CSP's form-action 'none'
+       is a promise that this page has no forms. -->
+  <button class="keys__close" id="keys-close" type="button">Done</button>
+</dialog>
+
+<!-- Outside main and the viewer, so it still speaks while either is inert. -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 </body>
 </html>

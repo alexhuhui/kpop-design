@@ -17,18 +17,37 @@
   --accent-dim: #c2500f;   /* orange dark enough to be a border or a ring */
   --accent-text: #96410a;  /* orange on light backgrounds — contrast-safe */
   --accent-on: #16120c;    /* text sitting on an orange fill */
+  --fill: #efe9e0;         /* a quiet hover wash, never an edge */
 
-  /* Enough air that a card reads as an object rather than a tile in a mosaic,
-     and no more. The page still hugs the screen edge: --pad is the smaller of
-     the two on a phone on purpose, so the gutter never out-spaces the margin. */
-  --gap: 0.75rem;
+  /* The viewer is the one dark surface. --on-dark-muted is 8:1 on --black. */
+  --on-dark: #f5f1ea;
+  --on-dark-muted: #b3a998;
+  --on-dark-wash: color-mix(in srgb, #fff 12%, transparent);
+
+  /* Flickr's rhythm: a thin, even seam between tiles, so the rows read as one
+     sheet of work rather than a pile of cards. */
+  --gap: 0.375rem;
   --pad: clamp(0.5rem, 2vw, 1rem);
-  --radius: 3px;         /* rings, code chips, small chrome */
-  --radius-card: 16px;   /* tiles only. Two radii, two jobs. */
+  --radius: 3px;         /* rings, code chips, kbd, small chrome */
+  --radius-card: 8px;    /* tiles, thumbnails and the shortcut sheet */
+  --shadow: 0 1px 20px color-mix(in srgb, var(--black) 12%, transparent);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* The justified wall's row height, per tile size. These are ROW in app.js:
+     change one, change the other, or the srcset picks the wrong file. */
+  --row: 160px;
 
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
           Arial, "Noto Sans", sans-serif;
+}
+
+:root[data-size="s"] { --row: 110px; }
+:root[data-size="l"] { --row: 240px; }
+
+@media (min-width: 640px) {
+  :root { --gap: 0.625rem; --row: 240px; }
+  :root[data-size="s"] { --row: 160px; }
+  :root[data-size="l"] { --row: 360px; }
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -50,14 +69,14 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   background: var(--bg);
-  /* The tiles and chips already answer a press with a scale. iOS's grey box
+  /* The tiles and buttons already answer a press with a scale. iOS's grey box
      on top of that just looks like a rendering fault. */
   -webkit-tap-highlight-color: transparent;
   color: var(--text);
   font-family: var(--font);
   font-size: 1rem;
   line-height: 1.5;
-  /* The masthead is sticky, so keep the browser from double-correcting. */
+  /* The filter bar is sticky, so keep the browser from double-correcting. */
   overflow-anchor: none;
 }
 
@@ -70,8 +89,7 @@ svg { display: block; }
 
 /* --accent is 2.4:1 against the page and would fail WCAG 1.4.11 as a ring —
    the same reason it is never used for text. --accent-dim is 4.5:1 and reads
-   as the same orange. The lightbox sits on a near-black backdrop and keeps
-   --accent, which is 5.6:1 there. */
+   as the same orange. The viewer is dark, and there --accent is 5.6:1. */
 :where(a, button, [tabindex]):focus-visible {
   outline: 2px solid var(--accent-dim);
   outline-offset: 2px;
@@ -95,53 +113,86 @@ svg { display: block; }
 /* --- Tap feedback ----------------------------------------------------- */
 /* :where() so these carry zero specificity and never fight a later rule. */
 
-:where(button, .tile__btn) {
+:where(button) {
   transition: transform 140ms var(--ease-spring);
 }
 
-:where(button, .tile__btn):active {
+:where(button):active {
   transform: scale(0.96);
 }
 
+/* A tile presses as one card. Scaling the button alone would shrink the image
+   inside its own clipped corners. */
+.tile__card { transition: transform 140ms var(--ease-spring); }
+.tile__card:has(> .tile__btn:active) { transform: scale(0.97); }
+.tile__btn:active { transform: none; }
+
 /* --- Masthead --------------------------------------------------------- */
 
-/* One sticky unit above 640px. Below it, only .filters pins (see the media
-   query under the filter bar) so the header scrolls away on a phone. */
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: saturate(1.6) blur(12px);
-  border-bottom: 1px solid var(--border);
-}
+/* Not a box. The masthead scrolls away at every width and only the filter
+   bar pins: a sticky child can only stick inside its parent's box, so the
+   wrapper has to stop being one. */
+.topbar { display: contents; }
 
+/* Editorial, the way Are.na and Savee open a page: the name in big type, one
+   line of facts under it, and the tools off to the right. No logo mark — the
+   name is the mark. */
 .masthead {
-  /* Title on the left, search on the right, on one line. It wraps to two rows
-     on a narrow screen rather than squeezing the field to nothing. */
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  padding: 0.7rem var(--pad) 0.6rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.25rem 2rem;
+  padding: 1.5rem var(--pad) 1.25rem;
 }
 
-.masthead__id { flex: 1 1 12rem; min-width: 0; }
+@media (min-width: 640px) {
+  .masthead { padding-top: 3rem; padding-bottom: 1.5rem; }
+}
+
+.masthead__id { min-width: 0; }
 
 .masthead__name {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  color: var(--accent-text);
+  font-size: clamp(2.25rem, 7vw, 4.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  color: var(--black);
 }
 
 .masthead__line {
-  margin: 0.15rem 0 0;
-  font-size: 0.8125rem;
-  line-height: 1.35;
+  margin: 0.6rem 0 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.masthead__stats {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
-  max-width: 60ch;
+}
+
+.masthead__stats:empty { display: none; }
+
+.masthead__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 0 1 34rem;
+  min-width: 0;
+}
+
+/* On a phone the tools take the full row under the name. */
+@media (max-width: 639px) {
+  .masthead__tools { flex: 1 1 100%; flex-wrap: nowrap; }
+  /* A zero basis, so the field gives way to the switch and the shuffle
+     rather than pushing them to a row of their own. */
+  .search { flex: 1 1 0; min-width: 0; }
 }
 
 /* A notch only eats the sides in landscape, and only there is it worth the
@@ -149,6 +200,7 @@ svg { display: block; }
 @media (orientation: landscape) {
   .masthead,
   .filters__list,
+  .serieshead,
   .grid,
   .notice,
   .footer {
@@ -157,71 +209,208 @@ svg { display: block; }
   }
 }
 
+/* --- Search ----------------------------------------------------------- */
+
+.search {
+  position: relative;
+  flex: 1 1 14rem;
+  min-width: 11rem;
+}
+
+.search__icon {
+  position: absolute;
+  top: 50%;
+  left: 0.1rem;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  /* Decoration sitting over the field — it must never eat the click. */
+  pointer-events: none;
+}
+
+/* An editorial field: one rule under the words, no box. That rule is
+   --border-control, because an empty text box has no label inside it to
+   identify it and WCAG 1.4.11 wants a 3:1 boundary. On focus it thickens and
+   turns orange. The transparent outline is for forced-colors mode, which
+   drops box-shadow. */
+.search__input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.25rem 0.5rem 1.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--border-control);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.search__input::placeholder { color: var(--muted); }
+.search__input:hover { border-bottom-color: var(--text); }
+
+.search__input:focus {
+  outline: 2px solid transparent;
+  border-bottom-color: var(--accent-dim);
+  box-shadow: 0 1px 0 0 var(--accent-dim);
+}
+
+/* --- Tools: tile size, shuffle, shortcuts ----------------------------- */
+
+/* Google Photos' zoom as a three-way switch. The group has the edge; the
+   buttons inside are identified by their letters. */
+.sizes {
+  display: inline-flex;
+  flex: none;
+  padding: 3px;
+  border: 1px solid var(--border-control);
+  border-radius: 999px;
+}
+
+.size {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .size:hover { background: var(--fill); }
+}
+
+.size[aria-pressed="true"] {
+  background: var(--black);
+  color: #fff;
+}
+
+.tool {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-control);
+  border-radius: 999px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .tool:hover { background: var(--fill); }
+}
+
+.tool svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* On a narrow phone the word goes and the icon stays, so the tools fit on
+   the search row. Visually hidden, not display: none, so the button keeps
+   its name. */
+@media (max-width: 479px) {
+  .tool:not(.tool--keys) { width: 44px; padding: 0; justify-content: center; }
+  .tool__text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.tool--keys {
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+  font-size: 1rem;
+}
+
+/* The shortcut sheet is for keyboards. A phone has none to press. */
+@media (hover: none) and (pointer: coarse) {
+  .tool--keys { display: none; }
+}
+
 /* --- Filter bar ------------------------------------------------------- */
 
+/* The only thing that pins, at every width. */
 .filters {
   /* The toggle is positioned against this, not against the list, so it is never
      clipped by the list's own overflow: hidden. Both share these three, so the
      clamp and the toggle can never drift apart. */
   --chip-h: 2.25rem;    /* matches .filter min-height */
-  --chip-gap: 0.4rem;
-  --list-pad: 0.6rem;
-  position: relative;
+  --chip-gap: 0.25rem;
+  --list-pad: 0.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: saturate(1.6) blur(12px);
   border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
-
-/* Phones: drop the masthead out of the sticky flow and pin only the control. */
-@media (max-width: 639px) {
-  /* display:contents, not position:static — a sticky child can only stick
-     inside its parent's box, so the wrapper has to stop being a box at all. */
-  .topbar { display: contents; }
-
-  .filters {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    background: color-mix(in srgb, var(--bg) 92%, transparent);
-    backdrop-filter: saturate(1.6) blur(12px);
-    border-bottom: 1px solid var(--border);
-  }
-
-}
-
-/* The chips wrap; they do not scroll. A single scrolling row put 18 series in
-   2237px of track, which is 3 chips of 19 on a 375px screen — a filter you
-   cannot see is a filter that does not exist. Wrapped and clamped to two rows,
-   a 1440px desktop shows every chip with no scrolling at all, and a phone shows
-   six with the rest one tap away.
-   The clamp is built from its parts rather than guessed as one number: two chips,
-   the one row gap between them, and the block padding the list already has.
-   Guessing it as a single length clips the padding, and then scrollHeight
+/* The tabs wrap; they do not scroll. A single scrolling row put 18 series in
+   2237px of track, which is 3 of 19 on a 375px screen — a filter you cannot
+   see is a filter that does not exist. Wrapped and clamped to two rows, a
+   1440px desktop shows every tab with no scrolling at all, and a phone shows
+   a dozen with the rest one tap away.
+   The clamp is built from its parts rather than guessed as one number: two
+   tabs, the one row gap between them, and the block padding the list already
+   has. Guessing it as a single length clips the padding, and then scrollHeight
    exceeds clientHeight by a few pixels on a bar that actually fits — which
    reads to app.js as an overflow and shows a toggle that would do nothing. */
 .filters__list {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--chip-gap);
+  gap: var(--chip-gap) 0.25rem;
   padding: var(--list-pad) var(--pad);
   /* The toggle is absolutely placed at the bottom-right, so the list reserves a
-     column its width. Reserving rather than overlaying is why a chip can never
+     column its width. Reserving rather than overlaying is why a tab can never
      end up underneath it at any viewport width. */
   padding-right: calc(var(--pad) + 6.75rem);
   min-height: calc(var(--chip-h) + var(--list-pad) * 2);
 }
 
 /* Collapsed. overflow: hidden clips the rows below the clamp; app.js marks the
-   clipped chips inert in the same pass, because a chip you cannot see must not
-   be a chip you can Tab to (WCAG 2.2, 2.4.11 Focus Not Obscured). */
+   clipped tabs inert in the same pass, because a tab you cannot see must not
+   be a tab you can Tab to (WCAG 2.2, 2.4.11 Focus Not Obscured). */
 .filters__list[data-collapsed="true"] {
   max-height: calc(var(--chip-h) * 2 + var(--chip-gap) + var(--list-pad) * 2);
   overflow: hidden;
+  /* overflow clips at the padding edge, and row three starts one --chip-gap
+     below row two — inside the bottom padding — so its top edge peeked out.
+     Paint stops one gap below row two: room for a focus ring, none for row 3. */
+  clip-path: inset(0 0 calc(var(--list-pad) - var(--chip-gap)) 0);
 }
 
-/* Only rendered when the chips actually overflow two rows — app.js measures and
-   removes it otherwise, so a wide desktop that fits everything never shows a
-   control that would do nothing. Pinned to the bottom right rather than
-   centred, so it sits beside the last row in both states instead of jumping. */
+/* Only rendered when the tabs actually overflow two rows — app.js measures and
+   removes it otherwise. Pinned to the bottom right rather than centred, so it
+   sits beside the last row in both states instead of jumping. */
 .filters__more {
   position: absolute;
   right: var(--pad);
@@ -230,25 +419,21 @@ svg { display: block; }
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  min-height: 36px;
-  padding: 0.4rem 0.7rem;
+  min-height: var(--chip-h);
+  padding: 0.4rem 0.8rem;
   border: 1px solid var(--border-control);
   border-radius: 999px;
-  background: var(--surface);
-  color: var(--accent-text);
+  background: var(--bg);
+  color: var(--text);
   font: inherit;
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 650;
   white-space: nowrap;
   cursor: pointer;
-  transition: border-color 140ms ease, background-color 140ms ease;
 }
 
 @media (hover: hover) {
-  .filters__more:hover {
-    border-color: var(--accent-dim);
-    background: var(--accent-soft);
-  }
+  .filters__more:hover { background: var(--fill); }
 }
 
 .filters__more svg {
@@ -269,148 +454,143 @@ svg { display: block; }
    author level. */
 .filters__more[hidden] { display: none; }
 
+/* Are.na's and Behance's tabs: plain words, the picked one dark and underlined.
+   A tab is a button with a text label, and the label is what identifies it, so
+   it needs no box (WCAG 1.4.11). The underline is --accent-dim, 4.5:1, because
+   it carries the state. The border is there at rest as transparent so the
+   active underline never shifts the text. */
 .filter {
   flex: 0 0 auto;
-  min-height: 36px;
-  padding: 0.4rem 0.85rem;
-  border: 1px solid var(--border-control);
-  border-radius: 999px;
-  background: var(--surface);
+  min-height: var(--chip-h);
+  padding: 0.35rem 0.55rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 550;
   white-space: nowrap;
   cursor: pointer;
-  transition: transform 140ms var(--ease-spring),
-              background-color 140ms ease,
-              border-color 140ms ease,
-              color 140ms ease;
+  transition: color 140ms ease, border-color 140ms ease;
 }
 
 @media (hover: hover) {
+  /* Darker, never lighter. Hover may not cost contrast. */
   .filter:hover {
-    /* --accent-mid is 1.4:1 and would make the edge of a hovered chip fainter
-       than a resting one. Hover may not cost contrast. */
-    border-color: var(--accent-dim);
-    background: var(--accent-soft);
-    color: var(--accent-text);
+    color: var(--black);
+    border-bottom-color: var(--border-control);
   }
 }
 
 .filter[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-on);
+  color: var(--black);
+  font-weight: 700;
+  border-bottom-color: var(--accent-dim);
+}
+
+/* Forced colors repaint every border the same, so the underline alone would
+   not say which tab is on. Say it with the text as well. */
+@media (forced-colors: active) {
+  .filter[aria-pressed="true"] { text-decoration: underline; }
+}
+
+/* A phone fits more of them in the two rows with a little less air. */
+@media (max-width: 639px) {
+  .filter { padding-inline: 0.4rem; font-size: 0.8125rem; }
 }
 
 .filter__count {
-  margin-inline-start: 0.4em;
+  margin-inline-start: 0.3em;
+  font-size: 0.75em;
   font-variant-numeric: tabular-nums;
-  /* The count used to sit at opacity 0.65, which blended --muted toward the
-     chip and landed at 2.8:1 — a WCAG 1.4.3 failure, and it dragged the whole
-     button down with it. Weight separates the count from its label instead.
-     Weight costs no contrast. */
-  font-weight: 400;
+  /* Size separates the count from its label. Opacity would cost contrast:
+     it used to sit at 0.65 and land at 2.8:1, a WCAG 1.4.3 failure. */
+  font-weight: 500;
+  color: var(--muted);
 }
 
-/* --- Search ----------------------------------------------------------- */
+/* --- Series head ------------------------------------------------------ */
+/* An Are.na channel head, shown only while one series is picked. */
 
-.search {
-  position: relative;
-  /* Sized against the masthead, not the page: it sits beside the title. */
-  flex: 0 1 18rem;
-  min-width: 11rem;
+.serieshead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  padding: 1.25rem var(--pad) 0.25rem;
 }
 
-.search__icon {
-  position: absolute;
-  /* top + translateY is the whole centering. There used to be a `- 0.3rem` in
-     the calc as well, which is a second nudge on top of the first and rode the
-     glyph high. The box is centred; the glyph is centred in its own viewBox. */
-  top: 50%;
-  left: 0.75rem;
-  width: 15px;
-  height: 15px;
-  transform: translateY(-50%);
-  fill: none;
-  stroke: var(--muted);
-  stroke-width: 2;
-  stroke-linecap: round;
-  /* Decoration sitting over the field — it must never eat the click. */
-  pointer-events: none;
+.serieshead[hidden] { display: none; }
+
+.serieshead__title {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--black);
 }
 
-.search__input {
-  width: 100%;
-  min-height: 36px;
-  padding: 0.4rem 0.85rem 0.4rem 2.1rem;
-  border: 1px solid var(--border-control);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.8125rem;
-  transition: border-color 140ms ease;
-}
-
-.search__input::placeholder { color: var(--muted); }
-.search__input:hover { border-color: var(--accent-dim); }
-
-/* On a phone the field takes the full second row rather than a sliver of the
-   first. */
-@media (max-width: 559px) {
-  .search { flex: 1 1 100%; }
+.serieshead__count {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
 }
 
 /* --- The wall --------------------------------------------------------- */
-/* One grid, one shape. There used to be a <section> per series, each with its
-   own layout — carousel, feature, uniform — chosen in the manifest. The mix
-   read well as a page but it cut 57 designs into 17 labelled blocks, and the
-   shapes only ever contrasted with each other in the All view. A jumbled wall
-   is the whole gallery at once, so the shapes had nothing left to contrast
-   with and every line that drew them is gone. */
+/* Justified rows, Flickr's and Google Photos': every tile in a line is the
+   same height, and the line fills the width edge to edge. No script measures
+   anything. Each tile carries its aspect ratio as --r (set by app.js), its
+   flex-basis is --row × --r, and it takes a share of the leftover width
+   proportional to --r — so every tile in a line grows by the same factor and
+   the heights stay equal. 45 of the designs are square and most of the rest
+   are 4:5, so the rows come out calm. */
+
+main { padding-top: 0.75rem; }
 
 .grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
   margin: 0;
-  padding: 0 var(--pad);
+  padding: 0.5rem var(--pad) 0;
   list-style: none;
-  /* Two columns from zero. One column on a phone is the single thing that
-     makes a gallery read as a slideshow instead of a wall, and these are
-     posters — a tap opens the full-size viewer, so the small card only has to
-     be enough to recognise. If you change a count here, change GRID_SIZES in
-     app.js in the same edit, or every phone downloads a desktop-sized file. */
-  column-count: 2;
-  column-gap: var(--gap);
 }
 
-@media (min-width: 1024px) { .grid { column-count: 3; } }
-@media (min-width: 1440px) { .grid { column-count: 4; } }
-@media (min-width: 1600px) { .grid { column-count: 5; } }
-@media (min-width: 2000px) { .grid { column-count: 6; } }
+/* The last line would stretch two tiles across the whole width. This
+   filler soaks up the leftover instead, so the last line sits at row height
+   and ends where it ends. */
+.grid::after {
+  content: "";
+  flex-grow: 1000000;
+}
 
 .grid[hidden] { display: none; }
 
-/* The filter bar is sticky, so a tile scrolled to the top edge lands under it.
-   Chrome allows for a sticky ancestor by itself; Safari and Firefox do not.
-   This is the margin that keeps a focus ring visible in all three
-   (WCAG 2.2, 2.4.11 Focus Not Obscured). */
 .tile {
-  /* A tile must not be split across two columns. */
-  break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  margin: 0 0 var(--gap);
-  /* Clears the sticky masthead plus a two-row filter bar (164px at 1440). The
-     bar got taller when the chips stopped scrolling and started wrapping, so
-     this grew with it. An expanded bar is taller still, but picking a chip
-     collapses it, so the collapsed height is the one that has to fit. */
-  scroll-margin-top: 11rem;
+  flex: calc(var(--r, 1) * 100) 1 calc(var(--r, 1) * var(--row));
+  /* A banner wider than a phone shrinks to the screen. */
+  min-width: 0;
+  /* The filter bar is sticky, so a tile scrolled to the top edge lands under
+     it. Chrome allows for a sticky ancestor by itself; Safari and Firefox do
+     not. This is the margin that keeps a focus ring visible in all three
+     (WCAG 2.2, 2.4.11 Focus Not Obscured). It clears the bar at its collapsed
+     two-row height; picking a tab collapses it, so that is the one that has
+     to fit. */
+  scroll-margin-top: 6.5rem;
 }
 
-/* Phones: the masthead scrolls away, so only the two-row bar (96px) counts. */
-@media (max-width: 639px) { .tile { scroll-margin-top: 6.5rem; } }
-
 .tile[hidden] { display: none; }
+
+/* The rounded, clipped box. The image and the caption both sit inside it, so
+   clipping once here means their corners can never disagree by a pixel. */
+.tile__card {
+  position: relative;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
 
 .tile__btn {
   display: block;
@@ -421,16 +601,19 @@ svg { display: block; }
   background: none;
   cursor: zoom-in;
   border-radius: var(--radius-card);
-  /* The scrim is a rounded rectangle laid over a rounded image. Clip once here
-     so the two corners can never disagree by a pixel. */
-  overflow: hidden;
+}
+
+/* The overflow clip on the card would cut an outside ring in half, so the
+   tile's ring is drawn inside its own edge. */
+.tile__btn:focus-visible {
+  outline-offset: -4px;
+  border-radius: var(--radius-card);
 }
 
 .tile__img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: var(--radius-card);
   /* The blurred 24px placeholder from the manifest. It is already on screen
      when the real file starts downloading, so nothing ever flashes white. */
   background-size: cover;
@@ -442,15 +625,15 @@ svg { display: block; }
 .tile__img.is-loaded { opacity: 1; }
 
 /* --- Tile caption ------------------------------------------------------ */
-/* A scrim carrying the member, the design and the series, on hover and on
-   keyboard focus. The series is named because the wall has no headings: this
-   is the only place a desktop reader learns which series a design belongs to
-   without opening it.
+/* Unsplash's hover: a soft gradient with the member, the design and the
+   series, and nothing to click on top of it. The series is named because the
+   wall has no headings in the All view: this is the only place a desktop
+   reader learns which series a design belongs to without opening it.
 
    The whole thing is gated on (hover: hover). A phone has no hover state, so a
    scrim there would either never appear or have to sit on permanently over the
-   bottom of all 48 posters. On touch the card stays pure image and the tap
-   opens the viewer, which carries the name. */
+   bottom of every poster. On touch the card stays pure image and the tap opens
+   the viewer, which carries the name. */
 .tile__cap { display: none; }
 
 @media (hover: hover) {
@@ -462,28 +645,24 @@ svg { display: block; }
     right: 0;
     bottom: 0;
     left: 0;
-    padding: 1.75rem 0.7rem 0.6rem;
+    padding: 2.25rem 0.7rem 0.6rem;
     /* Dark enough at the baseline for white text at any artwork underneath,
        fading to nothing so it never reads as a bar bolted to the card. */
     background: linear-gradient(
       to top,
       color-mix(in srgb, var(--black) 82%, transparent),
-      color-mix(in srgb, var(--black) 55%, transparent) 45%,
+      color-mix(in srgb, var(--black) 50%, transparent) 50%,
       transparent
     );
     color: #fff;
     text-align: left;
     opacity: 0;
-    transform: translateY(0.4rem);
-    transition: opacity 180ms ease, transform 180ms ease;
+    transition: opacity 180ms ease;
     pointer-events: none;
   }
 
-  .tile__btn:hover .tile__cap,
-  .tile__btn:focus-visible .tile__cap {
-    opacity: 1;
-    transform: none;
-  }
+  .tile__card:hover .tile__cap,
+  .tile__btn:focus-visible .tile__cap { opacity: 1; }
 
   .tile__who {
     font-size: 0.8125rem;
@@ -508,17 +687,6 @@ svg { display: block; }
     text-transform: uppercase;
     color: color-mix(in srgb, #fff 60%, transparent);
   }
-
-  /* No lift and no drop shadow. The scrim is the hover answer now; a card that
-     also jumps is two effects competing on one gesture, and a shadow under a
-     tile in this gutter lands on its neighbour. */
-  .tile__img { transition: opacity 420ms ease, transform 320ms ease; }
-  .tile__btn:hover .tile__img { transform: scale(1.03); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tile__cap { transition: none; }
-  .tile__btn:hover .tile__img { transform: none; }
 }
 
 /* --- Notices: loading, empty, error ----------------------------------- */
@@ -551,6 +719,7 @@ svg { display: block; }
 }
 
 .footer {
+  margin-top: 2.5rem;
   padding: 2rem var(--pad) 3rem;
   border-top: 1px solid var(--border);
   color: var(--muted);
@@ -559,171 +728,402 @@ svg { display: block; }
 
 .footer p { margin: 0; }
 
-/* --- Lightbox --------------------------------------------------------- */
+/* --- Viewer ----------------------------------------------------------- */
+/* Flickr's and Apple Photos' lightbox. The one dark surface on the site: the
+   chrome goes away so the design is the only lit thing on screen. Four rows —
+   a top bar, the stage, a strip of details, the filmstrip — and the stage
+   takes whatever the other three leave. */
 
-.lightbox {
+.viewer {
   position: fixed;
   inset: 0;
   z-index: 50;
   display: grid;
-  place-items: center;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  background: var(--black);
+  color: var(--on-dark);
+  animation: fade 180ms ease both;
 }
 
-.lightbox[hidden] { display: none; }
+.viewer[hidden] { display: none; }
 
-.lightbox__backdrop {
-  position: absolute;
-  inset: 0;
-  background: color-mix(in srgb, var(--black) 92%, transparent);
-  cursor: zoom-out;
-  animation: fade-in 180ms ease both;
+@keyframes fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-.lightbox__stage {
-  position: relative;
-  margin: 0;
-  display: grid;
-  place-items: center;
-  /* Never larger than the viewport, in either direction. */
-  max-width: 100vw;
-  max-height: 100vh;
-  touch-action: none;
-  /* Top clears the close button, bottom clears the caption bar. The arrows
-     still float over the image edge — they carry their own dark pill, and
-     stealing 60px a side from a 375px screen costs more than it buys. */
-  padding: calc(0.75rem + 44px + 0.5rem) 0 calc(0.75rem + 2.25rem);
-  box-sizing: border-box;
-}
+/* On the dark, plain --accent is the ring: 5.6:1 there. */
+.viewer :focus-visible { outline-color: var(--accent); }
 
-.lightbox__img {
-  display: block;
-  max-width: 100vw;
-  /* The stage reserves room for the chrome; the image gets what is left. */
-  max-height: calc(100vh - 6rem);
-  /* A long press to start a swipe must not raise the iOS share sheet. */
-  -webkit-touch-callout: none;
-  user-select: none;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  /* A transition, not an animation: swapping src does not restart a keyframe,
-     so arrowing used to pop. JS drops opacity, then restores it on load. */
-  transition: opacity 200ms ease;
-  will-change: transform, opacity;
-}
-
-/* On a phone 100vh is the viewport with the URL bar hidden, so the bottom of
-   the image sits under that bar. dvh is the honest figure; the vh above stays
-   as the fallback. */
-@supports (height: 100dvh) {
-  .lightbox__stage { max-height: 100dvh; }
-  .lightbox__img { max-height: calc(100dvh - 6rem); }
-}
-
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-
-/* Name on the left, position on the right, one row. Laid out rather than
-   floated, so a five-word title pushes the counter instead of sliding under
-   it. */
-.lightbox__bar {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
+.viewer__top {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.5rem max(0.9rem, env(safe-area-inset-right))
-           max(0.6rem, env(safe-area-inset-bottom)) max(0.9rem, env(safe-area-inset-left));
-  color: #fff;
-  pointer-events: none;
+  padding: max(0.5rem, env(safe-area-inset-top)) 0.75rem 0.5rem;
 }
 
-.lightbox__cap {
+.viewer__counter {
   margin: 0;
-  min-width: 0;
-  font-size: 0.8125rem;
-  line-height: 1.3;
-  /* Two lines, then clipped. A caption is a label, not a paragraph, and an
-     unbounded one would climb the poster it describes. */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  /* The backdrop is 92% black, but the image behind this bar is not. A shadow
-     costs nothing and survives a white poster. */
-  text-shadow: 0 1px 3px color-mix(in srgb, var(--black) 90%, transparent);
-}
-
-.lightbox__cap b { font-weight: 650; }
-
-.lightbox__cap span {
-  color: color-mix(in srgb, #fff 72%, transparent);
-}
-
-.lightbox__counter {
-  flex: none;
-  margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
-  color: color-mix(in srgb, #fff 72%, transparent);
-  text-shadow: 0 1px 3px color-mix(in srgb, var(--black) 90%, transparent);
+  color: var(--on-dark-muted);
+  white-space: nowrap;
 }
 
-.lightbox__btn {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  /* 44px, per Apple's target guidance and comfortably over WCAG 2.5.8. */
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
+.viewer__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* A button with a text label is identified by its label (WCAG 1.4.11), so a
+   faint wash is enough to say "button". The transparent border keeps an edge
+   in forced-colors mode. */
+.viewer__btn,
+.viewer__series {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--black) 55%, transparent);
-  color: #fff;
+  background: var(--on-dark-wash);
+  color: var(--on-dark);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.lightbox__btn svg {
-  width: 22px;
-  height: 22px;
+.viewer__btn[hidden] { display: none; }
+
+@media (hover: hover) {
+  .viewer__btn:hover,
+  .viewer__series:hover { background: color-mix(in srgb, #fff 22%, transparent); }
+}
+
+.viewer__btn--round {
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+}
+
+.viewer__btn svg,
+.copy svg {
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
+.viewer__btn .icon-play { fill: currentColor; }
+.viewer__btn[aria-pressed="true"] .icon-play,
+.viewer__btn[aria-pressed="false"] .icon-pause { display: none; }
+
+/* A phone has room for the icons, not the words. The button keeps its
+   aria-label, so it keeps its name. */
+@media (max-width: 479px) {
+  .viewer__btn-text { display: none; }
+  #viewer-play { width: 44px; padding: 0; justify-content: center; }
+}
+
+/* The one primary action, in the site's orange. */
+.copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-on);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 @media (hover: hover) {
-  .lightbox__btn:hover { background: var(--accent); color: var(--accent-on); }
+  .copy:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); }
 }
 
-.lightbox__btn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 90%, transparent);
-  outline-offset: 2px;
+/* The stage. A flex box with an auto-margined image, not grid centring: when
+   the zoomed image is bigger than the stage, auto margins fall to zero and the
+   whole image scrolls, where centring would push its top and left edges out
+   of reach. */
+.viewer__stage {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.lightbox__btn--close {
-  top: max(0.75rem, env(safe-area-inset-top));
-  right: max(0.75rem, env(safe-area-inset-right));
+.viewer__img {
+  flex: none;
+  margin: auto;
+  display: block;
+  /* app.js sets width and height from the manifest, so the box is the right
+     shape before a byte of the new file lands, and the blurred placeholder
+     fills it straight away. */
+  background-size: cover;
+  background-position: center;
+  cursor: zoom-in;
+  /* Every gesture on the unzoomed image is ours: tap zooms, sideways steps,
+     down closes. */
+  touch-action: none;
+  /* A long press to start a swipe must not raise the iOS share sheet. */
+  -webkit-touch-callout: none;
+  user-select: none;
+  /* A transition, not an animation: swapping src does not restart a keyframe,
+     so arrowing used to pop. JS drops opacity, then restores it on load. */
+  transition: opacity 200ms ease;
 }
 
-.lightbox__btn--prev { left: max(0.75rem, env(safe-area-inset-left)); }
-.lightbox__btn--next { right: max(0.75rem, env(safe-area-inset-right)); }
+.viewer.is-zoomed .viewer__stage { overflow: auto; overscroll-behavior: contain; }
+.viewer.is-zoomed .viewer__img { cursor: zoom-out; touch-action: auto; }
+.viewer.is-zoomed .viewer__step { display: none; }
 
-.lightbox__btn--prev,
-.lightbox__btn--next { top: 50%; transform: translateY(-50%); }
+.viewer__step {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, #fff 20%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--black) 55%, transparent);
+  color: var(--on-dark);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.viewer__step--prev { left: 0.75rem; }
+.viewer__step--next { right: 0.75rem; }
 
 /* The spring press has to compose with the centring transform. */
-:where(.lightbox__btn--prev, .lightbox__btn--next):active {
-  transform: translateY(-50%) scale(0.96);
+.viewer__step:active { transform: translateY(-50%) scale(0.96); }
+.viewer__step[hidden] { display: none; }
+
+@media (hover: hover) {
+  .viewer__step:hover { background: color-mix(in srgb, var(--black) 85%, transparent); }
 }
 
-.lightbox__btn[hidden] { display: none; }
+.viewer__step svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The details strip: who and what on the left, the way out to the series on
+   the right. */
+.viewer__info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem 0.5rem;
+}
+
+.viewer__names { min-width: 0; }
+
+.viewer__who {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--on-dark);
+}
+
+.viewer__what {
+  margin: 0.1rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--on-dark-muted);
+}
+
+.viewer__what[hidden] { display: none; }
+
+/* --- Filmstrip -------------------------------------------------------- */
+/* The rest of the series, Flickr's lightbox strip. Positioned, so app.js can
+   read a thumbnail's offsetLeft against it to centre the current one. */
+
+.strip {
+  position: relative;
+  display: flex;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0.25rem 1rem max(0.75rem, env(safe-area-inset-bottom));
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--on-dark-wash) transparent;
+}
+
+.strip[hidden] { display: none; }
+
+.strip__item { flex: none; }
+
+.strip__btn {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  cursor: pointer;
+  /* The current design is lit; the rest wait in the dark. Pictures, not
+     text, so the dimming costs no contrast requirement. */
+  opacity: 0.5;
+  transition: opacity 140ms ease;
+}
+
+@media (hover: hover) {
+  .strip__btn:hover { opacity: 0.85; }
+}
+
+.strip__btn[aria-current="true"] {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.strip__img {
+  display: block;
+  width: auto;
+  height: 56px;
+  border-radius: var(--radius);
+}
+
+@media (max-width: 639px) {
+  .strip__img { height: 44px; }
+}
+
+/* --- Shortcut sheet --------------------------------------------------- */
+
+.keys {
+  width: min(26rem, calc(100vw - 2rem));
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.keys::backdrop { background: color-mix(in srgb, var(--black) 50%, transparent); }
+
+.keys__title {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--black);
+}
+
+.keys__list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.keys__list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.keys__list dt {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.keys__list dd {
+  margin: 0;
+  font-size: 0.875rem;
+  text-align: right;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.8em;
+  padding: 0.05em 0.45em;
+  border: 1px solid var(--border-control);
+  border-bottom-width: 2px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--black);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.keys__close {
+  display: block;
+  margin: 1.25rem 0 0 auto;
+  min-height: 44px;
+  padding: 0.5rem 1.4rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--black);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+/* --- Toast ------------------------------------------------------------ */
+/* A dark pill that rises at the bottom centre and leaves on its own. Above
+   the viewer, so it answers there too. */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  z-index: 60;
+  padding: 0.75rem 1.25rem;
+  border-radius: 999px;
+  background: var(--black);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translate(-50%, 1rem);
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
+}
+
+.toast.is-shown {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Over the dark viewer a black pill would vanish, so it turns light, and it
+   rises clear of the filmstrip. */
+body.is-locked .toast {
+  bottom: max(6.5rem, env(safe-area-inset-bottom));
+  background: var(--surface);
+  color: var(--black);
+}
+
+/* An empty live region must not paint a black dot. */
+.toast:empty { display: none; }
 
 /* Body scroll lock. JS pins the offset so the position is restored exactly. */
 body.is-locked {
@@ -734,7 +1134,8 @@ body.is-locked {
 }
 
 /* --- Reduced motion --------------------------------------------------- */
-/* State still changes. Nothing moves. */
+/* State still changes. Nothing moves. The slideshow is withheld entirely by
+   app.js: a page that turns itself is motion, whatever the transition. */
 
 @media (prefers-reduced-motion: reduce) {
   html:focus-within { scroll-behavior: auto; }
@@ -746,9 +1147,10 @@ body.is-locked {
     scroll-behavior: auto !important;
   }
 
-  :where(button, .tile__btn):active { transform: none; }
-  :where(.lightbox__btn--prev, .lightbox__btn--next):active { transform: translateY(-50%); }
-  .tile__btn:hover { transform: none; }
+  :where(button):active,
+  .tile__card:has(> .tile__btn:active) { transform: none; }
+  .viewer__step:active { transform: translateY(-50%); }
+  .toast { transform: translate(-50%, 0); }
 }
 
 /* --- Mobile type floor ------------------------------------------------ */

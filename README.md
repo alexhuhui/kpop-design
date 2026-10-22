@@ -7,7 +7,8 @@ hosts the result.
 ```
 index.html          the whole page
 style.css           all styling
-app.js              fetches designs.json, builds the grid and the viewer
+app.js              fetches designs.json, builds the wall and the viewer
+sw.js               the offline cache: images from disk on a repeat visit
 designs.json        generated. Do not edit it by hand
 images/<series>/    your designs. The folder name is the series
 images/_derived/    generated. Resized JPEGs. Do not edit them
@@ -33,7 +34,8 @@ npm run manifest
 ```
 
 That is the whole task. **A folder is a series**, so a new folder becomes a new filter button
-on its own. You never edit the HTML or the JavaScript.
+on its own. You never edit the HTML or the JavaScript. The design count and the series count
+under the site title come from the manifest, so they stay correct on their own too.
 
 An uncompressed 2× Canva PNG is **3 MB to 5 MB**. After squoosh it must be near **300 KB**.
 Compress the file before you commit it. Git keeps every version of a binary file forever, so a
@@ -55,34 +57,59 @@ this stays correct on its own.
 
 ### The wall
 
-Every series is jumbled into one masonry grid — two columns on a phone, up to six on a wide
-screen — rather than sitting in its own labelled block. Designs from different series are
-interleaved round-robin, so the page reads as a continuous run.
+Every series is jumbled into one wall of **justified rows**, the Flickr and Google Photos
+layout: every design in a row is the same height, and each row fills the width edge to edge.
+Most of the designs are square or 4:5, so the rows come out even. Designs from different series
+are interleaved round-robin, so the page reads as a continuous run.
 
-There is no per-series shape to configure. The chips filter the wall; they never split it. Pick
-a series from the chips and you get the same grid with everything else hidden, in that series'
-own numbered order.
+There is no per-series shape to configure. The tabs filter the wall; they never split it. Pick
+a series and you get the same wall with everything else hidden, in that series' own numbered
+order, under a heading with the series name and its count.
 
 The series name still travels with each design: it is in the alt text, in the hover caption on
-a desktop, and in the viewer's bottom bar on a phone.
+a desktop, and in the viewer on a phone.
 
-### The filter chips
+**Tile size.** The **S / M / L** switch in the header sets the row height (the `1`, `2` and `3`
+keys do the same). A size other than medium goes in the address as `?size=s` or `?size=l`, so
+a reload keeps it.
 
-The chips wrap into rows rather than scrolling sideways, and the bar clamps to two rows. On a
-desktop that is every chip at once. On a narrower screen a **Show all** button opens the rest,
-and picking a chip closes it again. Chips below the clamp are not reachable by keyboard until
+**Shuffle.** The **Shuffle** button deals the wall into a new random order for this visit. It
+is not saved anywhere: a reload, or a link someone shares, always shows the normal order.
+
+### The filter tabs
+
+The tabs are plain series names with a count, and the one that is on is dark and underlined.
+They wrap into rows rather than scrolling sideways, and the bar clamps to two rows. On a
+desktop that is every tab at once. On a narrower screen a **Show all** button opens the rest,
+and picking a tab closes it again. Tabs below the clamp are not reachable by keyboard until
 the bar is opened, which is what makes the button a real disclosure rather than decoration.
+The bar is the only part of the header that stays on screen when you scroll.
 
 A folder holding one member's designs should be named for the **group**, not the member —
 `images/enhypen/` with files `01-sunghoon.png`, `07-jungwon.png`. A folder named `sunghoon`
-gives you the alt text "Sunghoon — Sunghoon", and it spends a filter chip on a person instead of
+gives you the alt text "Sunghoon — Sunghoon", and it spends a filter tab on a person instead of
 on a body of work.
 
 ---
 
+## The viewer
+
+A tap on a design opens it in a dark, full-screen viewer, the way Flickr and Apple Photos show a
+photo. The design fills the screen. Under it is the name, a **See all <series>** button that
+goes back to the wall with that series picked, and a filmstrip of the rest of the series.
+
+- **Copy link** puts the design's own link on the clipboard.
+- **Slideshow** moves to the next design every four seconds. A tab in the background pauses it.
+  It is not offered to someone whose system asks for reduced motion.
+- A click or a tap on the design **zooms** in on that spot. Click again, or press `Escape`, to
+  zoom back out.
+- On a phone, swipe sideways to move, and swipe down to close.
+
+Press `?` anywhere for the full list of keyboard shortcuts.
+
 ## Search and links
 
-A search box sits in the header, on the same line as the site title. It matches the alt text,
+A search box sits in the header, beside the size switch. It matches the alt text,
 the series label and the filename. It **narrows** the current filter instead of replacing it,
 so CHIKAI plus `yeonjun` gives the Yeonjun designs in CHIKAI. `/` moves focus to it. `Escape`
 clears it.
@@ -161,6 +188,14 @@ the browser usually decodes it before the click arrives. The viewer prefetches t
 and the previous one when it opens. All of this stops when `navigator.connection` reports Data
 Saver or a 2G connection.
 
+**Offline cache.** `sw.js` keeps every image it has served. Image URLs are versioned, so it
+answers those from disk forever and a second visit paints without the network. The page,
+the script, the stylesheet and `designs.json` still come from the network first, so a deploy is
+live on the next load.
+
+**The first screen first.** Layout decides which tiles are on the first screen, and only those
+load at high priority. Everything below the fold waits for the browser's lazy loader.
+
 **Incremental builds.** `.build-cache.json` keys each derivative on the source hash, so a build
 after you add one design re-encodes one design.
 
@@ -181,8 +216,12 @@ that the manifest promises but the disk does not hold.
 Images-only is a visual decision, not an accessibility one.
 
 - Every image has real alt text, derived from its filename.
-- The viewer traps focus, closes on `Escape`, and returns focus to the tile that opened it.
-  The arrow keys move inside the current filter. `Home` and `End` jump to the ends.
+- The viewer traps focus, makes the page behind it `inert`, closes on `Escape`, and returns
+  focus to the tile that opened it. The arrow keys move inside the current filter. `Home` and
+  `End` jump to the ends. While the slideshow plays, the screen-reader announcement of each
+  design goes quiet, so a reader is not talked over every four seconds.
+- The keyboard shortcut list is a native `<dialog>`, so it traps focus and closes on `Escape`
+  without any custom code.
 - Focus rings appear on `:focus-visible` only, so a keyboard user gets an indicator and a
   mouse click stays clean.
 - Under `prefers-reduced-motion: reduce` every animation and transition collapses to `0.01ms`.
@@ -192,8 +231,10 @@ Images-only is a visual decision, not an accessibility one.
   (`#96410a`, 6.5:1). A border or a ring uses `--accent-dim` (`#c2500f`, 4.5:1). A fill uses
   `--accent`, because the page reads a fill by its area, not by its edge.
 - **Control edges are darker than hairlines.** `--border` (`#e8e2d8`) draws the rule between
-  blocks. `--border-control` (`#948b7c`, 3.4:1) draws the edge of the search field and the
-  filter chips, which WCAG 1.4.11 requires to reach 3:1.
+  blocks. `--border-control` (`#948b7c`, 3.4:1) draws the line under the search field and the
+  edge of the size switch, which WCAG 1.4.11 requires to reach 3:1. The filter tabs have no
+  box: a button with a text label is identified by its label. The underline that marks the
+  active tab is `--accent-dim`, because it carries the state.
 - The filter bar is sticky, so a tile carries `scroll-margin-top`. A focus ring never lands
   under the bar (WCAG 2.2, 2.4.11).
 
@@ -206,11 +247,13 @@ script or style. A `Content-Security-Policy` meta tag in `index.html` states tha
 
 ```
 default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:;
-connect-src 'self'; base-uri 'none'; form-action 'none'
+connect-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'
 ```
 
 `default-src 'none'` denies first and then names each exception. `data:` appears on `img-src`
-only, for the blurred placeholders in the manifest and for the favicon. An edit that adds a
+only, for the blurred placeholders in the manifest and for the favicon. `worker-src 'self'` is
+for `sw.js`, the offline cache. `form-action 'none'` holds because the page has no form: even
+the shortcut list closes with a plain button. An edit that adds a
 CDN link or an inline script now fails in the browser console instead of reaching production.
 
 `frame-ancestors` is absent on purpose. A browser ignores that directive inside a meta tag,
@@ -315,7 +358,7 @@ a preview before a push.
 ### How the deploy works
 
 `.github/workflows/pages.yml` runs on every push to `main`. It installs Node, runs the build,
-copies `index.html`, `style.css`, `app.js`, `designs.json` and `images/_derived/` into a
+copies `index.html`, `style.css`, `app.js`, `sw.js`, `designs.json` and `images/_derived/` into a
 `_site` folder, and publishes that folder to Pages. It never uploads the source PNGs, because
 the page never requests them. The deployed site is about 30 MB instead of 181 MB.
 
