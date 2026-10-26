@@ -59,8 +59,8 @@ this stays correct on its own.
 
 Every series is jumbled into one wall of **justified rows**, the Flickr and Google Photos
 layout: every design in a row is the same height, and each row fills the width edge to edge.
-Most of the designs are square or 4:5, so the rows come out even. Designs from different series
-are interleaved round-robin, so the page reads as a continuous run.
+Most of the designs are square or 4:5, so the rows come out even. The wall is shuffled on every
+load, like Pinterest. Two designs from the same series are kept apart where possible.
 
 There is no per-series shape to configure. The tabs filter the wall; they never split it. Pick
 a series and you get the same wall with everything else hidden, in that series' own numbered
@@ -73,8 +73,8 @@ a desktop, and in the viewer on a phone.
 keys do the same). A size other than medium goes in the address as `?size=s` or `?size=l`, so
 a reload keeps it.
 
-**Shuffle.** The **Shuffle** button deals the wall into a new random order for this visit. It
-is not saved anywhere: a reload, or a link someone shares, always shows the normal order.
+**Shuffle.** The wall already shuffles on every load. The **Shuffle** button deals it again
+without a reload. A series tab is never shuffled: it keeps its numbered order.
 
 ### The filter tabs
 

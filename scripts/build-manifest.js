@@ -30,6 +30,7 @@ const CACHE = path.join(ROOT, '.build-cache.json');
 // Folder name -> display label, for casing the title-caser gets wrong.
 const LABEL_OVERRIDES = {
   'chikai': 'CHIKAI',
+  'txt-chikai-to-b-movie-poster': 'CHIKAI Movie Poster',
   'promise': 'PROMISE',
   'bed-of-thorns': 'Bed of Thorns',
   'city-pop-singles': 'City Pop Singles',
@@ -44,6 +45,7 @@ const LABEL_OVERRIDES = {
   'txt-afterglow-game-cover': 'Afterglow',
   'txt-perfect-storm-album': 'Perfect Storm',
   'txt-perfect-storm-game-menu-screen': 'Perfect Storm Game',
+  'txt-ride-the-storm-airline': 'Ride the Storm Airline',
   'taehyun-highball': 'Highball',
   'beomgyu-retro-poster': 'Beomgyu Retro',
   'kai-retro': 'Kai Retro',
@@ -56,6 +58,7 @@ const LABEL_OVERRIDES = {
 // Order of the filter bar. Anything not listed is appended alphabetically.
 const CATEGORY_ORDER = [
   'chikai',
+  'txt-chikai-to-b-movie-poster',
   'city-pop-singles',
   'promise',
   'bed-of-thorns',
@@ -66,6 +69,7 @@ const CATEGORY_ORDER = [
   'txt-afterglow-game-cover',
   'txt-perfect-storm-album',
   'txt-perfect-storm-game-menu-screen',
+  'txt-ride-the-storm-airline',
   'drama-poster',
   'tak-adil',
   'yeonjun-ghost-girl',

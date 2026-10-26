@@ -77,6 +77,7 @@
     all: [],          // every image, flattened, in wall order
     visible: [],      // what is on screen right now — what the arrow keys walk
     filter: 'all',
+    order: null,      // which list the grid's DOM order is in: 'all' or a slug
     query: '',        // the search box. Deliberately not in the URL: a live
                       // field would rewrite the address on every keystroke.
     size: 'm',        // tile size, from ?size=
@@ -332,17 +333,22 @@
   }
 
   // Round-robin across the series: one from each in turn, then round again.
-  // Consecutive tiles are therefore almost never the same series, which is the
-  // whole point of a jumbled wall. It is deterministic — the same order every
-  // load — so a shared link's neighbours never move, and prev/next means the
-  // same thing twice. Relative order inside a series is preserved, so filtering
-  // to one tab still shows 01, 02, 03 in that order.
-  function interleave(groups) {
+  // Pinterest's wall: a new random order on every load. Each pick is drawn from
+  // the designs whose series differs from the one just placed, so two tiles
+  // from one series only touch when nothing else is left. The order is never
+  // written anywhere. A series tab is not shuffled: refresh() lays it out in
+  // its own 01, 02, 03 order.
+  function spread(items) {
+    var pool = items.slice();
     var out = [];
-    var most = 0;
-    groups.forEach(function (g) { if (g.length > most) most = g.length; });
-    for (var i = 0; i < most; i++) {
-      groups.forEach(function (g) { if (i < g.length) out.push(g[i]); });
+    var last = null;
+    while (pool.length) {
+      var other = pool.filter(function (it) { return it.category !== last; });
+      var from = other.length ? other : pool;
+      var pick = from[Math.floor(Math.random() * from.length)];
+      pool.splice(pool.indexOf(pick), 1);
+      out.push(pick);
+      last = pick.category;
     }
     return out;
   }
@@ -560,19 +566,11 @@
     if (b) setSize(b.dataset.size, true);
   });
 
-  // Are.na's shuffle: the wall in a new random order, for this visit only. It
-  // is not written anywhere, so a reload or a shared link always lands on the
-  // same deterministic order and a link's neighbours never move.
+  // Deal the wall again without a reload. refresh() puts the tiles in the new
+  // order; a series tab keeps its numbered order either way.
   function shuffle() {
-    var a = state.all.slice();
-    for (var i = a.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var t = a[i]; a[i] = a[j]; a[j] = t;
-    }
-    state.all = a;
-    var frag = document.createDocumentFragment();
-    a.forEach(function (item) { frag.appendChild(item.el); });
-    els.grid.appendChild(frag);
+    state.all = spread(state.all);
+    state.order = null;
     refresh();
     prioritiseFold();
     toast('Shuffled');
@@ -626,18 +624,31 @@
   //
   // One pass over one list. A hidden tile leaves the flow, so the surviving
   // tiles close up into rows with no gaps.
+  //
+  // The All view walks the shuffled wall; a series tab walks its own items, in
+  // file order. The tiles are re-appended in that order — a DOM move, not CSS
+  // `order`, so Tab order matches what is drawn — and only when the list
+  // changes. Moving a node blurs it, so a focused tile gets its focus back.
   function refresh() {
     var tokens = state.query.toLowerCase().split(/\s+/).filter(Boolean);
     var all = state.filter === 'all';
+    var list = all ? state.all : seriesBySlug(state.filter).items;
 
-    state.visible = [];
+    if (state.order !== state.filter) {
+      var focused = els.grid.contains(document.activeElement) ? document.activeElement : null;
+      var frag = document.createDocumentFragment();
+      list.forEach(function (item) { frag.appendChild(item.el); });
+      // The other series' tiles keep their places after these, hidden.
+      els.grid.insertBefore(frag, els.grid.firstChild);
+      state.order = state.filter;
+      if (focused) focused.focus({ preventScroll: true });
+    }
 
     state.all.forEach(function (item) {
-      var show = (all || item.category === state.filter) &&
-        tokens.every(function (t) { return item.haystack.indexOf(t) !== -1; });
-      item.el.hidden = !show;
-      if (show) state.visible.push(item);
+      item.el.hidden = !((all || item.category === state.filter) &&
+        tokens.every(function (t) { return item.haystack.indexOf(t) !== -1; }));
     });
+    state.visible = list.filter(function (item) { return !item.el.hidden; });
 
     Array.prototype.forEach.call(els.filters.children, function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.slug === state.filter));
@@ -1233,8 +1244,8 @@
       });
     });
 
-    // The wall order, not the manifest order.
-    state.all = interleave(state.categories.map(function (c) { return c.items; }));
+    // The wall order, not the manifest order: a new deal on every load.
+    state.all = spread([].concat.apply([], state.categories.map(function (c) { return c.items; })));
 
     // Before the grid, so every tile is built with the right `sizes`.
     setSize(readSize(), false);

@@ -105,11 +105,13 @@ shapes only ever rendered in the All view and only ever contrasted with *each ot
 wall leaves them nothing to contrast with, so they became 90 lines of CSS drawing a distinction
 the page no longer makes.
 
-`app.js` builds the wall order with `interleave()`: round-robin across the series, one from each
-in turn. Consecutive tiles are therefore almost never the same series, and the order is
-deterministic, so a shared link's neighbours never move and prev/next means the same thing
-twice. Relative order inside a series survives, so filtering to one chip still shows `01`, `02`,
-`03` in order.
+`app.js` deals the wall in a new random order on every load, the way Pinterest does, with
+`spread()`. Each pick is drawn from the designs whose series differs from the one just placed,
+so two tiles from one series touch only when nothing else is left. The order is never written
+anywhere, so a shared design link opens the right design, but its neighbours differ per visit.
+A series tab is **not** shuffled: `refresh()` lays it out from `series.items`, so it shows
+`01`, `02`, `03` in order, and re-appends the tiles (a DOM move, not CSS `order`) only when the
+filter changes. The filmstrip uses `series.items` as well.
 
 **Only layout knows the first screen.** How many tiles fit in a row depends on their ratios,
 the width and the tile size, so no DOM-order guess is right. Every tile is built
@@ -196,9 +198,9 @@ refuses inline styles in markup.
 `html[data-size]`, which sets `--row`, and resets every tile's `sizes` so the browser can pick a
 different file. A size other than M is written to `?size=` — the query, not the hash, because
 the hash is the filter and the open design — and a copied design link leaves it out, so a
-shared design opens the same for everyone. **Shuffle** is Fisher–Yates over `state.all` for
-this visit only: it is never written anywhere, so a reload or a shared link always lands on the
-deterministic `interleave()` order. `?` opens `#keys`, a native `<dialog>` with `showModal()`,
+shared design opens the same for everyone. **Shuffle** calls `spread()` again to deal a new
+wall without a reload. It is never written anywhere, and it leaves a series tab in its
+numbered order. `?` opens `#keys`, a native `<dialog>` with `showModal()`,
 which brings the top layer, the focus trap, `Escape` and focus restore with it; the document
 key handler stands aside while it is open. The `?` button is hidden on a coarse pointer with no
 hover — a phone has no keyboard to press.
