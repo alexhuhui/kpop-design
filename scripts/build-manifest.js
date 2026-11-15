@@ -59,6 +59,7 @@ const LABEL_OVERRIDES = {
   'han-jisung-retro-poster': 'Han Jisung Retro',
   'nicholas-retro-poster': 'Nicholas Retro',
   'enhypen': 'ENHYPEN',
+  'txt-knight-album-cover': 'Knight',
   'misc': 'Odds & Ends',
 };
 
@@ -101,7 +102,7 @@ const CATEGORY_ORDER = [
 const MEMBERS = ['tomorrow-x-together', 'huening-kai', 'han-jisung', 'sunghoon', 'beomgyu', 'nicholas', 'jungwon', 'yeonjun', 'taehyun', 'soobin', 'zizan', 'kai'];
 
 // Words the title-caser must not touch.
-const WORD_OVERRIDES = { txt: 'TXT', vol: 'Vol', ii: 'II', iii: 'III', iv: 'IV', v: 'V' };
+const WORD_OVERRIDES = { txt: 'TXT', cd: 'CD', vol: 'Vol', ii: 'II', iii: 'III', iv: 'IV', v: 'V' };
 
 // Kept lowercase unless they lead the phrase.
 const MINOR_WORDS = new Set(['of', 'with', 'and', 'the', 'a', 'an', 'to', 'for', 'in', 'on']);
