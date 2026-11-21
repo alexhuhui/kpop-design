@@ -60,6 +60,8 @@ const LABEL_OVERRIDES = {
   'nicholas-retro-poster': 'Nicholas Retro',
   'enhypen': 'ENHYPEN',
   'txt-knight-album-cover': 'Knight',
+  'txt-christmas-lover': 'Christmas Lover',
+  'txt-horror-wallpaper': 'Horror Wallpaper',
   'misc': 'Odds & Ends',
 };
 
@@ -83,6 +85,8 @@ const CATEGORY_ORDER = [
   'txt-bank-tv-show-poster',
   'txt-stick-with-you-kdrama-ending-credits',
   'txt-angel-bite-emo',
+  'txt-christmas-lover',
+  'txt-horror-wallpaper',
   'drama-poster',
   'tak-adil',
   'yeonjun-ghost-girl',
